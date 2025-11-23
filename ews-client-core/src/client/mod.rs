@@ -5,14 +5,14 @@ mod types;
 
 pub use credentials::Credentials;
 pub use error::EwsError;
+pub use operations::{FolderHierarchySyncResult, FolderInfo};
 pub use types::*;
 
 use std::collections::VecDeque;
 
 use ews::{
     BaseFolderId, BaseItemId, BaseShape, Folder, FolderId, FolderShape, ItemShape, Operation, OperationResponse,
-    PathToElement, RealItem,
-    response::{ResponseClass, ResponseCode, ResponseError},
+    PathToElement, RealItem, response::ResponseClass,
 };
 use reqwest::Client;
 use url::Url;
