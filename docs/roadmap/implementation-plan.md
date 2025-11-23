@@ -47,21 +47,30 @@
 
 ## Phase 2: Complete Operation Set (Week 3-4)
 
-### Step 2.1: Folder Operations
+### Step 2.1: Folder Operations ✅
 
-- [ ] `create_folder` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/create_folder.rs`
-- [ ] `delete_folder` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/delete_folder.rs`
-- [ ] `update_folder` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/update_folder.rs`
-- [ ] `copy_folders` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/copy_move_operations/copy_move_folder.rs`
-- [ ] `move_folders` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/copy_move_operations/copy_move_folder.rs`
+- [x] `create_folder` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/create_folder.rs`
+- [x] `delete_folder` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/delete_folder.rs`
+- [x] `update_folder` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/update_folder.rs`
+- [x] `copy_folders` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/copy_move_operations/copy_move_folder.rs`
+- [x] `move_folders` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/copy_move_operations/copy_move_folder.rs`
 
-**Files to create:**
+**Files created:**
 
 - `ews-client-core/src/client/operations/create_folder.rs`
 - `ews-client-core/src/client/operations/delete_folder.rs`
 - `ews-client-core/src/client/operations/update_folder.rs`
 - `ews-client-core/src/client/operations/copy_move_operations/mod.rs`
 - `ews-client-core/src/client/operations/copy_move_operations/folder.rs`
+
+**Status:** ✅ 完成 - 所有文件夹操作已实现并编译通过。
+
+**测试:**
+
+- 移除了无意义的签名测试
+- 创建了完整的集成测试套件 `tests/folder_operations.rs`
+- 集成测试默认被 `#[ignore]` 标记,需要真实 EWS 服务器才能运行
+- 运行集成测试: `cargo test --package ews-client-core -- --ignored`
 
 ### Step 2.2: Message Operations
 

@@ -137,13 +137,13 @@ impl EwsClient {
                 match change {
                     sync_folder_hierarchy::Change::Create { folder } => {
                         if let Folder::Folder { folder_id, .. } = folder {
-                            let folder_id = folder_id.ok_or(EwsError::MissingId)?;
+                            let folder_id = folder_id.ok_or(EwsError::MissingIdInResponse)?;
                             all_created_ids.push(folder_id.id);
                         }
                     }
                     sync_folder_hierarchy::Change::Update { folder } => {
                         if let Folder::Folder { folder_id, .. } = folder {
-                            let folder_id = folder_id.ok_or(EwsError::MissingId)?;
+                            let folder_id = folder_id.ok_or(EwsError::MissingIdInResponse)?;
                             all_updated_ids.push(folder_id.id);
                         }
                     }
@@ -260,7 +260,7 @@ impl EwsClient {
 
                     // Not every Exchange account will have all queried
                     // well-known folders, so we skip any which were not found.
-                    Err(EwsError::Response(ref err))
+                    Err(EwsError::ResponseError(ref err))
                         if err.response_code == ews::response::ResponseCode::ErrorFolderNotFound =>
                     {
                         None
@@ -301,9 +301,9 @@ impl EwsClient {
                     child_folder_count,
                     ..
                 } => {
-                    let folder_id = folder_id.ok_or(EwsError::MissingId)?;
-                    let parent_folder_id = parent_folder_id.ok_or(EwsError::MissingId)?;
-                    let display_name = display_name.ok_or_else(|| EwsError::Operation {
+                    let folder_id = folder_id.ok_or(EwsError::MissingIdInResponse)?;
+                    let parent_folder_id = parent_folder_id.ok_or(EwsError::MissingIdInResponse)?;
+                    let display_name = display_name.ok_or_else(|| EwsError::Processing {
                         message: "folder missing display name".to_string(),
                     })?;
 
@@ -317,7 +317,7 @@ impl EwsClient {
                         child_folder_count,
                     })
                 }
-                _ => Err(EwsError::Operation {
+                _ => Err(EwsError::Processing {
                     message: "unexpected folder type".to_string(),
                 }),
             })

@@ -44,7 +44,7 @@ impl EwsClient {
         let items = self.get_items([id.clone()], &[], true).await?;
 
         if items.len() != 1 {
-            return Err(EwsError::Operation {
+            return Err(EwsError::Processing {
                 message: format!("provided single ID to GetItem operation, got {} responses", items.len()),
             });
         }
@@ -53,7 +53,7 @@ impl EwsClient {
         let item = items.into_iter().next().unwrap();
         let message = item.inner_message();
 
-        let raw_mime = message.mime_content.as_ref().ok_or_else(|| EwsError::Operation {
+        let raw_mime = message.mime_content.as_ref().ok_or_else(|| EwsError::Processing {
             message: "item has no content".to_string(),
         })?;
 
@@ -61,7 +61,7 @@ impl EwsClient {
         // encoding within the message
         let mime_content = BASE64_STANDARD
             .decode(&raw_mime.content)
-            .map_err(|_| EwsError::Operation {
+            .map_err(|_| EwsError::Processing {
                 message: "MIME content for item is not validly base64 encoded".to_string(),
             })?;
 

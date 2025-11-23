@@ -9,15 +9,16 @@
 // a Result with appropriate error handling.
 
 mod check_connectivity;
+pub mod copy_move_operations;
+mod create_folder;
+mod delete_folder;
 mod get_message;
 mod sync_folder_hierarchy;
+mod update_folder;
 
 // Re-export public types
 pub use sync_folder_hierarchy::{FolderHierarchySyncResult, FolderInfo};
 
-// Operations will be implemented in phases 2
-
-// Phase 2: Complete operation set
-// - Folder operations
-// - Message operations
-// - Send message
+// Phase 2.1: Folder operations - COMPLETED
+// Phase 2.2: Message operations - TODO
+// Phase 2.3: Send message - TODO

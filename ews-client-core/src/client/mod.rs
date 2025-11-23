@@ -219,7 +219,7 @@ impl EwsClient {
             let status = response.status();
             if !status.is_success() {
                 log::error!("Request FAILED with status {} for operation {}", status, op_name);
-                return Err(EwsError::Operation {
+                return Err(EwsError::Processing {
                     message: format!("HTTP request failed with status: {}", status),
                 });
             }
@@ -487,7 +487,10 @@ fn maybe_get_backoff_delay_ms(err: &ews::Error) -> Option<u32> {
 
 /// Look at the response class of a response message, and do nothing, warn or
 /// return an error accordingly.
-fn process_response_message_class<T>(op_name: &str, response_class: ResponseClass<T>) -> Result<T, EwsError> {
+pub(crate) fn process_response_message_class<T>(
+    op_name: &str,
+    response_class: ResponseClass<T>,
+) -> Result<T, EwsError> {
     match response_class {
         ResponseClass::Success(message) => Ok(message),
 
@@ -504,11 +507,11 @@ fn process_response_message_class<T>(op_name: &str, response_class: ResponseClas
 /// standard folder.
 ///
 /// Returns the ID of a valid folder for convenience.
-fn validate_get_folder_response_message(
+pub(crate) fn validate_get_folder_response_message(
     message: &ews::get_folder::GetFolderResponseMessage,
 ) -> Result<FolderId, EwsError> {
     if message.folders.inner.len() != 1 {
-        return Err(EwsError::Operation {
+        return Err(EwsError::Processing {
             message: format!(
                 "expected exactly one folder per response message, got {}",
                 message.folders.inner.len()
@@ -518,9 +521,9 @@ fn validate_get_folder_response_message(
 
     // Okay to unwrap as we've verified the length.
     match message.folders.inner.first().unwrap() {
-        Folder::Folder { folder_id, .. } => folder_id.clone().ok_or(EwsError::MissingId),
+        Folder::Folder { folder_id, .. } => folder_id.clone().ok_or(EwsError::MissingIdInResponse),
 
-        _ => Err(EwsError::Operation {
+        _ => Err(EwsError::Processing {
             message: String::from("expected folder to be of type Folder"),
         }),
     }
@@ -532,7 +535,7 @@ pub(crate) fn validate_response_message_count<T>(
     expected_len: usize,
 ) -> Result<(), EwsError> {
     if response_messages.len() != expected_len {
-        return Err(EwsError::Operation {
+        return Err(EwsError::Processing {
             message: format!(
                 "response contained an unexpected number of response messages: expected {}, got {}",
                 expected_len,
@@ -551,7 +554,7 @@ pub(crate) fn validate_response_message_count<T>(
 pub(crate) fn single_response_or_error<T>(responses: Vec<T>) -> Result<T, EwsError> {
     let responses_len = responses.len();
     let Some(message) = responses.into_iter().next() else {
-        return Err(EwsError::Operation {
+        return Err(EwsError::Processing {
             message: "expected 1 response message, got none".to_string(),
         });
     };
