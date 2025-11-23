@@ -1,4 +1,5 @@
 pub mod client;
-pub mod headers;
 
-pub use client::{Credentials, EwsClient, EwsError};
+pub use client::{
+    Credentials, EwsClient, EwsError, Mailbox, MessageHeaders, MessagePriority, make_header_string_for_mailbox_list,
+};

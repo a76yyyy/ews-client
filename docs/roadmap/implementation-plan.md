@@ -2,7 +2,7 @@
 
 ## 当前进度概览
 
-**当前阶段:** Phase 2 - Step 2.3 ✅ 已完成
+**当前阶段:** Phase 2 - 全部完成 ✅
 
 **已完成:**
 
@@ -11,10 +11,11 @@
 - ✅ Phase 2.1: 文件夹操作 (创建、删除、更新、复制、移动)
 - ✅ Phase 2.2: 消息操作 (同步、创建、删除、读取状态、垃圾邮件、复制、移动)
 - ✅ Phase 2.3: 发送消息功能
+- ✅ Phase 2.4: 消息头支持
 
 **进行中:**
 
-- 🔄 Phase 2.4: 消息头支持
+- 无
 
 **待开展:**
 
@@ -150,14 +151,55 @@
 - 支持 BCC 收件人列表
 - 不保存到已发送文件夹（由客户端负责）
 
-### Step 2.4: Headers Support
+### Step 2.4: Headers Support ✅
 
-- [ ] Message headers parsing - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/headers.rs`
-- [ ] Mailbox type support
+- [x] Message headers parsing - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/headers.rs`
+- [x] Mailbox type support
+- [x] MessageHeaders trait for unified header access
+- [x] Support for both EWS messages and parsed MIME messages
 
-**Files to create:**
+**Files created:**
 
-- `ews-client-core/src/headers.rs`
+- `ews-client-core/src/client/headers.rs`
+
+**Status:** ✅ 完成 - 消息头支持已实现并通过测试。
+
+**实现特性:**
+
+- `MessageHeaders` trait: 统一的消息头访问接口
+- `Mailbox` 结构体: 表示邮箱地址（名称 + 邮件地址）
+  - 支持 RFC 2047 编码（处理非 ASCII 字符）
+  - 格式化为 RFC 822 标准格式（`Name <email@example.com>`）
+- `MessagePriority` 枚举: 消息优先级（Highest/High/Normal/Low/Lowest）
+- 为 `ews::Message` 实现 MessageHeaders（从 EWS 响应中提取）
+- 为 `mail_parser::Message` 实现 MessageHeaders（从 MIME 内容中解析）
+- 支持的头字段：
+  - Message-ID
+  - From/Sender (author)
+  - To/Cc/Bcc/Reply-To (recipients)
+  - Subject
+  - Date (Unix timestamp in microseconds，兼容 Thunderbird PRTime 格式)
+  - Priority/Importance (X-Priority 和 EWS Importance)
+  - References
+  - Attachments flag
+  - Read status
+  - Message size
+  - Preview text
+- 辅助函数：
+  - `make_header_string_for_mailbox_list`: 格式化邮箱列表为 RFC 822 格式
+  - `array_of_recipients_to_mailboxes`: 转换 EWS 收件人列表
+  - `address_to_mailboxes`: 转换 mail_parser 地址列表
+
+**依赖:**
+
+- `mail-parser`: 用于解析 MIME 消息
+- `mail-builder`: 用于 RFC 2047 编码（处理非 ASCII 邮箱名称）
+
+**测试:**
+
+- ✅ Mailbox Display 格式化测试（包括 RFC 2047 编码）
+- ✅ 邮箱列表格式化测试
+- ✅ 所有单元测试通过（4/4）
 
 ## Phase 3: Python Bindings (Week 5)
 

@@ -1,10 +1,12 @@
 mod credentials;
 mod error;
+mod headers;
 pub mod operations;
 mod types;
 
 pub use credentials::Credentials;
 pub use error::EwsError;
+pub use headers::{Mailbox, MessageHeaders, MessagePriority, make_header_string_for_mailbox_list};
 pub use operations::{CreateMessageResult, FolderHierarchySyncResult, FolderInfo, SyncMessageInfo, SyncMessagesResult};
 pub use types::*;
 

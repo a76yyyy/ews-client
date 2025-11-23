@@ -30,6 +30,8 @@ thiserror = "1.0"
 base64 = "0.22"
 url = "2.5"
 log = "0.4"
+mail-parser = "0.11.1"
+mail-builder = { version = "0.4", default-features = false }
 
 # Python Bindings
 pyo3 = { version = "0.27", features = [
