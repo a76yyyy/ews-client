@@ -5,7 +5,7 @@ mod types;
 
 pub use credentials::Credentials;
 pub use error::EwsError;
-pub use operations::{FolderHierarchySyncResult, FolderInfo};
+pub use operations::{CreateMessageResult, FolderHierarchySyncResult, FolderInfo, SyncMessageInfo, SyncMessagesResult};
 pub use types::*;
 
 use std::collections::VecDeque;
@@ -89,6 +89,8 @@ pub struct EwsClient {
     endpoint: Url,
     credentials: Credentials,
     client: Client,
+    /// The Exchange Server version detected from the server
+    pub(crate) server_version: std::sync::Arc<std::sync::Mutex<ews::server_version::ExchangeServerVersion>>,
 }
 
 impl EwsClient {
@@ -98,6 +100,9 @@ impl EwsClient {
             endpoint,
             credentials,
             client: Client::new(),
+            server_version: std::sync::Arc::new(std::sync::Mutex::new(
+                ews::server_version::ExchangeServerVersion::Exchange2013_SP1,
+            )),
         })
     }
 
@@ -114,6 +119,28 @@ impl EwsClient {
     /// Get a reference to the credentials
     pub(crate) fn credentials(&self) -> &Credentials {
         &self.credentials
+    }
+
+    /// Updates the server version from a ServerVersionInfo header
+    pub(crate) fn update_server_version(&self, header: ews::server_version::ServerVersionInfo) -> Result<(), EwsError> {
+        let version = match header.version {
+            Some(version) if !version.is_empty() => version,
+            // If the server did not include a version identifier, there's nothing to do
+            _ => return Ok(()),
+        };
+
+        let version = match ews::server_version::ExchangeServerVersion::try_from(version.as_str()) {
+            Ok(version) => version,
+            // If the server included an unknown version, default to the most recent known version
+            Err(_) => ews::server_version::ExchangeServerVersion::Exchange2013_SP1,
+        };
+
+        // Update the in-memory representation
+        if let Ok(mut v) = self.server_version.lock() {
+            *v = version;
+        }
+
+        Ok(())
     }
 
     /// Check if the endpoint is an Office365 server
@@ -233,6 +260,15 @@ impl EwsClient {
 
             break match op_result {
                 Ok(envelope) => {
+                    // If the server responded with a version identifier, store it
+                    for header in envelope.headers.iter() {
+                        if let ews::soap::Header::ServerVersionInfo(server_version_info) = header {
+                            if let Err(e) = self.update_server_version(server_version_info.clone()) {
+                                log::warn!("Failed to update server version: {:?}", e);
+                            }
+                        }
+                    }
+
                     // Check if the first response is a back off message, and retry if so
                     if let Some(ews::response::ResponseClass::Error(ews::response::ResponseError {
                         message_xml: Some(ews::MessageXml::ServerBusy(server_busy)),
@@ -465,6 +501,55 @@ impl EwsClient {
         }
 
         Ok(folders)
+    }
+
+    /// Performs a CreateItem operation and processes its response.
+    pub(crate) async fn make_create_item_request(
+        &self,
+        create_item: ews::create_item::CreateItem,
+    ) -> Result<ews::ItemResponseMessage, EwsError> {
+        self.make_create_item_request_with_options(create_item, Default::default())
+            .await
+    }
+
+    /// Performs a CreateItem operation with custom options and processes its response.
+    pub(crate) async fn make_create_item_request_with_options(
+        &self,
+        create_item: ews::create_item::CreateItem,
+        transport_sec_failure_behavior: TransportSecFailureBehavior,
+    ) -> Result<ews::ItemResponseMessage, EwsError> {
+        let response = self
+            .make_operation_request(
+                create_item,
+                OperationRequestOptions {
+                    transport_sec_failure_behavior,
+                    ..Default::default()
+                },
+            )
+            .await?;
+
+        let response_messages = response.into_response_messages();
+
+        // We have only sent one message, therefore the response should only
+        // contain one response message.
+        let response_message = single_response_or_error(response_messages)?;
+        process_response_message_class(ews::create_item::CreateItem::NAME, response_message)
+    }
+
+    /// Performs an UpdateItem operation and processes its response.
+    pub(crate) async fn make_update_item_request(
+        &self,
+        update_item: ews::update_item::UpdateItem,
+    ) -> Result<ews::update_item::UpdateItemResponse, EwsError> {
+        let expected_response_count = update_item.item_changes.len();
+
+        let response = self.make_operation_request(update_item, Default::default()).await?;
+
+        let response_messages = response.response_messages();
+
+        validate_response_message_count(response_messages, expected_response_count)?;
+
+        Ok(response)
     }
 }
 
