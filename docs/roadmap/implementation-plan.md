@@ -1,5 +1,30 @@
 # Implementation Plan
 
+## 当前进度概览
+
+**当前阶段:** Phase 2 - Step 2.2 ✅ 已完成
+
+**已完成:**
+
+- ✅ Phase 1.1: 基础设施搭建
+- ✅ Phase 1.2: 核心操作实现 (连接检查、文件夹同步、消息获取)
+- ✅ Phase 2.1: 文件夹操作 (创建、删除、更新、复制、移动)
+- ✅ Phase 2.2: 消息操作 (同步、创建、删除、读取状态、垃圾邮件、复制、移动)
+
+**进行中:**
+
+- 🔄 Phase 2.3: 发送消息功能
+
+**待开展:**
+
+- ⏸️ Phase 2.4: 消息头支持
+- ⏸️ Phase 1.3: 系统性测试 (优先完成所有操作后再进行)
+- ⏸️ Phase 3: Python 绑定
+- ⏸️ Phase 4: 测试与文档
+- ⏸️ Phase 5: OAuth2 支持 (可选)
+
+---
+
 ## Phase 1: Core Rust Client (Week 1-2)
 
 ### Step 1.1: Basic Infrastructure
@@ -45,6 +70,8 @@
 - `tests/rust/test_operations.rs`
 - `tests/rust/fixtures/*.xml` (mock responses)
 
+**Status:** ⏸️ 暂未开展 - 优先完成所有操作实现后再进行系统性测试
+
 ## Phase 2: Complete Operation Set (Week 3-4)
 
 ### Step 2.1: Folder Operations ✅
@@ -72,26 +99,37 @@
 - 集成测试默认被 `#[ignore]` 标记,需要真实 EWS 服务器才能运行
 - 运行集成测试: `cargo test --package ews-client-core -- --ignored`
 
-### Step 2.2: Message Operations
+### Step 2.2: Message Operations ✅
 
-- [ ] `sync_messages` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/sync_messages_for_folder.rs`
-- [ ] `create_message` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/create_message.rs`
-- [ ] `delete_messages` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/delete_messages.rs`
-- [ ] `change_read_status` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/change_read_status.rs`
-- [ ] `change_read_status_all` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/change_read_status_all.rs`
-- [ ] `mark_as_junk` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/mark_as_junk.rs`
-- [ ] `copy_items` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/copy_move_operations/copy_move_item.rs`
-- [ ] `move_items` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/copy_move_operations/copy_move_item.rs`
+- [x] `sync_messages` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/sync_messages_for_folder.rs`
+- [x] `create_message` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/create_message.rs`
+- [x] `delete_messages` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/delete_messages.rs`
+- [x] `change_read_status` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/change_read_status.rs`
+- [x] `change_read_status_all` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/change_read_status_all.rs`
+- [x] `mark_as_junk` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/mark_as_junk.rs`
+- [x] `copy_items` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/copy_move_operations/copy_move_item.rs`
+- [x] `move_items` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/copy_move_operations/copy_move_item.rs`
 
-**Files to create:**
+**Files created:**
 
 - `ews-client-core/src/client/operations/sync_messages.rs`
 - `ews-client-core/src/client/operations/create_message.rs`
 - `ews-client-core/src/client/operations/delete_messages.rs`
-- `ews-client-core/src/client/operations/change_read_status.rs`
-- `ews-client-core/src/client/operations/change_read_status_all.rs`
+- `ews-client-core/src/client/operations/change_read_status.rs` (包含 `change_read_status_all`)
 - `ews-client-core/src/client/operations/mark_as_junk.rs`
 - `ews-client-core/src/client/operations/copy_move_operations/item.rs`
+
+**Status:** ✅ 完成 - 所有消息操作已实现并编译通过。
+
+**实现特性:**
+
+- `sync_messages`: 支持增量同步,自动处理分页,去重消息状态变更
+- `create_message`: 支持 MIME 内容上传,草稿/已读状态设置,MAPI 标志处理
+- `delete_messages`: 硬删除模式,自动忽略不存在的消息
+- `change_read_status`: 批量更新读取状态,部分失败容错
+- `change_read_status_all`: 标记文件夹内所有消息,支持 Exchange 2013+
+- `mark_as_junk`: 自动检测服务器版本,Exchange 2013+ 使用 MarkAsJunk,旧版本回退到移动操作
+- `copy_items` / `move_items`: 批量操作,自动处理 Exchange 2010 SP1+ 的 ReturnNewItemIds
 
 ### Step 2.3: Send Message
 
@@ -256,5 +294,7 @@ wiremock = "0.6"
 - [ ] All public APIs have documentation comments
 - [ ] Python type checking passes `mypy --strict`
 - [ ] Python code passes `ruff check`
+- [ ] All examples run successfully
+- [ ] Documentation is complete and accurate
 - [ ] All examples run successfully
 - [ ] Documentation is complete and accurate
