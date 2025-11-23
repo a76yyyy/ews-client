@@ -6,11 +6,14 @@ High-performance EWS (Exchange Web Services) client based on Rust with Python bi
 
 ## Features
 
-- 🚀 High-performance Rust core
-- 🐍 Python bindings with full type hints
-- ⚡ Async support (async/await)
-- 🔒 Basic and OAuth2 authentication
-- 📦 Pure Rust implementation (no XPCOM dependencies)
+- 🚀 **High-performance Rust core** - Built on tokio async runtime
+- 🐍 **Python bindings with full type hints** - Via PyO3
+- ⚡ **Async support** - Native async/await
+- 🔒 **Multiple authentication methods** - Basic auth (OAuth2 planned)
+- 📦 **Pure Rust implementation** - No XPCOM dependencies
+- 🔄 **Automatic throttling handling** - Smart retry and backoff
+- 📊 **Server version detection** - Auto-adapt to different Exchange versions
+- 🎯 **Batch operation optimization** - Automatic batching for performance
 
 ## Project Structure
 
@@ -25,9 +28,28 @@ ews-client/
 
 ## Development Status
 
-🚧 **Under Development** 🚧
+🚧 **Under Active Development** 🚧
 
-See [docs/roadmap/implementation-plan.md](docs/roadmap/implementation-plan.md) for details.
+### Implemented Features
+
+**Rust Core Library** (`ews-client-core`):
+
+- ✅ Connection testing and authentication
+- ✅ Folder operations (sync, create, update, delete, move, copy)
+- ✅ Message operations (sync, get, create, send, delete, move, copy)
+- ✅ Read status management
+- ✅ Junk mail marking
+- ✅ Server version detection
+- ✅ Automatic throttling handling
+- ✅ Batch operation optimization
+
+**Python Bindings** (`ews-client-python`):
+
+- ✅ Basic client creation
+- 🔄 Operation method bindings (in progress)
+- 🔄 Complete type definitions (in progress)
+
+See [Implementation Plan](docs/roadmap/implementation-plan.md) for detailed roadmap.
 
 ## Installation
 
@@ -73,10 +95,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let credentials = Credentials::basic("user@example.com", "password");
     let client = EwsClient::new(endpoint, credentials)?;
 
-    // Check if Office365
-    if client.is_office365() {
-        println!("Connected to Office365 server");
-    }
+    // Test connection
+    client.check_connectivity().await?;
+    println!("Connected successfully!");
+
+    // Sync folders
+    let result = client.sync_folder_hierarchy(None).await?;
+    println!("Created {} folders", result.created_folders.len());
 
     Ok(())
 }

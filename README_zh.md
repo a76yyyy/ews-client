@@ -29,6 +29,8 @@ ews-client/
 
 查看 [docs/roadmap/implementation-plan.md](docs/roadmap/implementation-plan.md) 了解详情。
 
+查看 [实现计划](docs/roadmap/implementation-plan.md) 了解详细路线图。
+
 ## 安装
 
 ```bash
