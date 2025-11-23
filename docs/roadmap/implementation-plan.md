@@ -21,18 +21,17 @@
 
 ### Step 1.2: Core Operations
 
-- [ ] `check_connectivity` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/check_connectivity.rs`
-- [ ] `sync_folder_hierarchy` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/sync_folder_hierarchy.rs`
-- [ ] `get_message` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/get_message.rs`
+- [x] `check_connectivity` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/check_connectivity.rs`
+- [x] `sync_folder_hierarchy` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/sync_folder_hierarchy.rs`
+- [x] `get_message` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/get_message.rs`
 - [ ] Mock server framework setup
 
-**Files to create:**
+**Files created:**
 
 - `ews-client-core/src/client/operations/mod.rs`
 - `ews-client-core/src/client/operations/check_connectivity.rs`
 - `ews-client-core/src/client/operations/sync_folder_hierarchy.rs`
 - `ews-client-core/src/client/operations/get_message.rs`
-- `tests/rust/mock_server.rs`
 
 ### Step 1.3: Testing
 
