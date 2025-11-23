@@ -22,7 +22,7 @@ impl CopyMoveOperationBuilder for MoveItem {
     fn operation_builder(client: &EwsClient, destination_id: String, ids: &[&str]) -> Self {
         // `ReturnNewItemIds` was introduced in Exchange Server 2010 SP1.
         // For older versions, we need to set it to None.
-        let server_version = client.server_version.lock().ok().map(|v| *v);
+        let server_version = Some(client.server_version.load());
         let return_new_item_ids = match server_version {
             Some(v) if v <= ews::server_version::ExchangeServerVersion::Exchange2010 => None,
             _ => Some(true),
@@ -51,7 +51,7 @@ impl CopyMoveOperationBuilder for CopyItem {
     fn operation_builder(client: &EwsClient, destination_id: String, ids: &[&str]) -> Self {
         // `ReturnNewItemIds` was introduced in Exchange Server 2010 SP1.
         // For older versions, we need to set it to None.
-        let server_version = client.server_version.lock().ok().map(|v| *v);
+        let server_version = Some(client.server_version.load());
         let return_new_item_ids = match server_version {
             Some(v) if v <= ews::server_version::ExchangeServerVersion::Exchange2010 => None,
             _ => Some(true),

@@ -140,7 +140,7 @@ impl EwsClient {
         use ews::mark_all_read::MarkAllItemsAsRead;
 
         // The `MarkAllItemsAsRead` operation was added in Exchange 2013
-        let server_version = self.server_version.lock().ok().map(|v| *v);
+        let server_version = Some(self.server_version.load());
         if let Some(version) = server_version {
             if version < ews::server_version::ExchangeServerVersion::Exchange2013 {
                 return Err(EwsError::Processing {

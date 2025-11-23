@@ -17,6 +17,8 @@ url.workspace = true
 log.workspace = true
 mail-parser.workspace = true
 mail-builder.workspace = true
+dashmap.workspace = true
+crossbeam.workspace = true
 
 [dev-dependencies]
 wiremock.workspace = true

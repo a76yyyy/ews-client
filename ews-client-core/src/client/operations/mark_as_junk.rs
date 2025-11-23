@@ -23,7 +23,7 @@ impl EwsClient {
         legacy_junk_folder_id: &str,
     ) -> Result<Vec<String>, EwsError> {
         // The `MarkAsJunk` operation was added in Exchange 2013
-        let server_version = self.server_version.lock().ok().map(|v| *v);
+        let server_version = Some(self.server_version.load());
         let use_mark_as_junk = server_version
             .map(|v| v >= ews::server_version::ExchangeServerVersion::Exchange2013)
             .unwrap_or(true); // Default to true if we can't determine version

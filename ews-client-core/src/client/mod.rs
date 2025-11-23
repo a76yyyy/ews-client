@@ -2,6 +2,7 @@ mod credentials;
 mod error;
 mod headers;
 pub mod operations;
+mod server_version;
 mod types;
 
 pub use credentials::Credentials;
@@ -12,9 +13,10 @@ pub use types::*;
 
 use std::collections::VecDeque;
 
+use crossbeam::atomic::AtomicCell;
 use ews::{
     BaseFolderId, BaseItemId, BaseShape, Folder, FolderId, FolderShape, ItemShape, Operation, OperationResponse,
-    PathToElement, RealItem, response::ResponseClass,
+    PathToElement, RealItem, response::ResponseClass, server_version::ExchangeServerVersion,
 };
 use reqwest::Client;
 use url::Url;
@@ -91,20 +93,22 @@ pub struct EwsClient {
     endpoint: Url,
     credentials: Credentials,
     client: Client,
-    /// The Exchange Server version detected from the server
-    pub(crate) server_version: std::sync::Arc<std::sync::Mutex<ews::server_version::ExchangeServerVersion>>,
+    /// The Exchange Server version detected from the server.
+    ///
+    /// Uses AtomicCell for lock-free access in hot paths like make_operation_request.
+    pub(crate) server_version: AtomicCell<ExchangeServerVersion>,
 }
 
 impl EwsClient {
     /// Create a new EWS client
     pub fn new(endpoint: Url, credentials: Credentials) -> Result<Self, EwsError> {
+        let server_version = server_version::read_server_version(&endpoint);
+
         Ok(Self {
             endpoint,
             credentials,
             client: Client::new(),
-            server_version: std::sync::Arc::new(std::sync::Mutex::new(
-                ews::server_version::ExchangeServerVersion::Exchange2013_SP1,
-            )),
+            server_version: AtomicCell::new(server_version),
         })
     }
 
@@ -125,22 +129,10 @@ impl EwsClient {
 
     /// Updates the server version from a ServerVersionInfo header
     pub(crate) fn update_server_version(&self, header: ews::server_version::ServerVersionInfo) -> Result<(), EwsError> {
-        let version = match header.version {
-            Some(version) if !version.is_empty() => version,
-            // If the server did not include a version identifier, there's nothing to do
-            _ => return Ok(()),
-        };
+        let version = server_version::update_server_version_from_header(&self.endpoint, header)?;
 
-        let version = match ews::server_version::ExchangeServerVersion::try_from(version.as_str()) {
-            Ok(version) => version,
-            // If the server included an unknown version, default to the most recent known version
-            Err(_) => ews::server_version::ExchangeServerVersion::Exchange2013_SP1,
-        };
-
-        // Update the in-memory representation
-        if let Ok(mut v) = self.server_version.lock() {
-            *v = version;
-        }
+        // Update the in-memory representation (lock-free atomic operation)
+        self.server_version.store(version);
 
         Ok(())
     }
@@ -179,11 +171,12 @@ impl EwsClient {
     {
         let op_name = <Op as Operation>::NAME;
 
+        // Get the current server version (lock-free atomic read)
+        let version = self.server_version.load();
+
         // Create SOAP envelope with the operation
         let envelope = ews::soap::Envelope {
-            headers: vec![ews::soap::Header::RequestServerVersion {
-                version: ews::server_version::ExchangeServerVersion::Exchange2013_SP1,
-            }],
+            headers: vec![ews::soap::Header::RequestServerVersion { version }],
             body: op,
         };
 
