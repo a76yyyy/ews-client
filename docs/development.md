@@ -154,18 +154,40 @@ uv run pre-commit run --all-files
 ```
 ews-client/
 ├── ews-client-core/          # Rust 核心库
-│   └── src/
-│       ├── client/           # 客户端实现
-│       │   ├── mod.rs        # 主客户端
-│       │   ├── credentials.rs # 认证凭据
-│       │   ├── error.rs      # 错误类型
-│       │   ├── types.rs      # 数据类型
-│       │   └── operations/   # EWS 操作
-│       │       └── mod.rs
-│       ├── headers.rs        # 消息头处理
-│       └── lib.rs            # 库入口
+│   ├── Cargo.toml
+│   ├── src/
+│   │   ├── client/           # 客户端实现
+│   │   │   ├── mod.rs        # 主客户端 (EwsClient)
+│   │   │   ├── credentials.rs # 认证凭据
+│   │   │   ├── error.rs      # 错误类型 (EwsError)
+│   │   │   ├── headers.rs    # 消息头处理 (MessageHeaders trait)
+│   │   │   ├── server_version.rs # 服务器版本检测
+│   │   │   ├── types.rs      # 数据类型
+│   │   │   └── operations/   # EWS 操作实现
+│   │   │       ├── mod.rs
+│   │   │       ├── check_connectivity.rs
+│   │   │       ├── sync_folder_hierarchy.rs
+│   │   │       ├── sync_messages.rs
+│   │   │       ├── create_folder.rs
+│   │   │       ├── update_folder.rs
+│   │   │       ├── delete_folder.rs
+│   │   │       ├── get_message.rs
+│   │   │       ├── create_message.rs
+│   │   │       ├── send_message.rs
+│   │   │       ├── delete_messages.rs
+│   │   │       ├── change_read_status.rs
+│   │   │       ├── mark_as_junk.rs
+│   │   │       └── copy_move_operations/
+│   │   │           ├── mod.rs
+│   │   │           ├── folder.rs
+│   │   │           └── item.rs
+│   │   └── lib.rs            # 库入口
+│   └── tests/                # Rust 集成测试
+│       ├── folder_operations.rs
+│       └── operations_test.rs
 │
-├── ews-client-python/        # Python 绑定
+├── ews-client-python/        # Python 绑定 (PyO3)
+│   ├── Cargo.toml
 │   └── src/
 │       ├── lib.rs            # PyO3 模块入口
 │       ├── client.rs         # Python 客户端包装
@@ -174,41 +196,110 @@ ews-client/
 │
 ├── python/ews_client/        # Python 包
 │   ├── __init__.py           # 包入口
-│   ├── _ews_client.pyi       # 类型存根
+│   ├── _ews_client.pyi       # 类型存根 (完整 API)
 │   ├── types.py              # Python 数据类型
 │   └── py.typed              # PEP 561 标记
 │
 ├── tests/
 │   ├── python/               # Python 测试
 │   │   ├── conftest.py
-│   │   └── test_client.py
-│   └── rust/                 # Rust 测试
+│   │   ├── test_client.py
+│   │   └── test_types.py
+│   └── rust/                 # Rust 单元测试
 │       └── mod.rs
 │
 ├── examples/
 │   ├── python/               # Python 示例
+│   │   └── basic_usage.py
 │   └── rust/                 # Rust 示例
+│       └── basic_client.rs
 │
 ├── docs/
 │   ├── api/                  # API 文档
+│   │   ├── rust.md           # Rust API 文档
+│   │   └── python.md         # Python API 文档
 │   ├── examples/             # 使用示例
-│   └── roadmap/              # 开发路线图
+│   │   └── basic_usage.md
+│   ├── roadmap/              # 开发路线图
+│   │   ├── implementation-plan.md
+│   │   ├── architecture.md
+│   │   └── reference-mapping.md
+│   └── development.md        # 本文档
+│
+├── reference/                # 参考实现 (Thunderbird)
+│   └── thunderbird-desktop/
 │
 ├── Makefile                  # 构建脚本
 ├── pyproject.toml            # Python 项目配置
+├── uv.lock                   # UV 锁文件
 ├── Cargo.toml                # Rust 工作空间配置
+├── Cargo.lock                # Rust 锁文件
+├── build.rs                  # 构建脚本
 └── .pre-commit-config.yaml   # Pre-commit 配置
 ```
 
 ## 添加新操作
 
-1. 在 `ews-client-core/src/client/operations/` 中实现操作
-2. 在 `ews-client-core/src/client/operations/mod.rs` 中导出
-3. 在 `tests/rust/` 中添加测试
-4. 在 `ews-client-python/src/client.rs` 中添加 Python 绑定
-5. 在 `python/ews_client/_ews_client.pyi` 中更新类型提示
-6. 在 `tests/python/` 中添加 Python 测试
-7. 更新文档
+### 步骤
+
+1. **实现 Rust 操作**
+   - 在 `ews-client-core/src/client/operations/` 中创建新文件
+   - 实现 `impl EwsClient` 方法
+   - 在 `operations/mod.rs` 中导出
+
+2. **添加 Rust 测试**
+   - 在 `ews-client-core/tests/` 中添加集成测试
+   - 运行 `cargo test` 验证
+
+3. **添加 Python 绑定** (可选,如需暴露给 Python)
+   - 在 `ews-client-python/src/client.rs` 中添加 `#[pymethods]`
+   - 处理类型转换和错误映射
+
+4. **更新类型定义**
+   - 在 `python/ews_client/types.py` 中添加数据类型
+   - 在 `python/ews_client/_ews_client.pyi` 中添加类型存根
+
+5. **添加 Python 测试**
+   - 在 `tests/python/` 中添加测试
+   - 运行 `make test` 验证
+
+6. **更新文档**
+   - 更新 `docs/api/rust.md`
+   - 更新 `docs/api/python.md`
+   - 添加使用示例到 `docs/examples/`
+
+### 示例: 添加新操作
+
+```rust
+// ews-client-core/src/client/operations/my_operation.rs
+use crate::client::{EwsClient, EwsError};
+
+impl EwsClient {
+    /// 我的新操作
+    pub async fn my_operation(&self, param: &str) -> Result<String, EwsError> {
+        // 实现逻辑
+        Ok(param.to_string())
+    }
+}
+```
+
+```rust
+// ews-client-core/src/client/operations/mod.rs
+mod my_operation;
+```
+
+```python
+# ews-client-python/src/client.rs
+#[pymethods]
+impl PyEwsClient {
+    fn my_operation<'py>(&self, py: Python<'py>, param: String) -> PyResult<Bound<'py, PyAny>> {
+        let client = self.inner.clone();
+        pyo3_async_runtimes::tokio::future_into_py(py, async move {
+            client.my_operation(&param).await.map_err(Into::into)
+        })
+    }
+}
+```
 
 ## 调试
 
@@ -329,20 +420,40 @@ make all  # 格式化、构建、检查、测试
 make help
 ```
 
-主要目标:
+### 主要目标
 
-- `install` - 安装依赖和设置环境
-- `build-dev` - 开发构建
-- `build-prod` - 生产构建
-- `test` - 运行测试
+**安装和设置**:
+
+- `install` - 安装所有依赖并设置 pre-commit hooks
+- `rebuild-lockfiles` - 重新构建锁文件,更新所有依赖
+
+**构建目标**:
+
+- `build-dev` - 开发构建 (debug 模式)
+- `build-prod` - 生产构建 (release 模式,启用优化)
+- `build-profiling` - 启用性能分析的构建
+- `build-coverage` - 启用代码覆盖率的构建
+- `build-pgo` - 使用 Profile-Guided Optimization 的构建
+
+**Rust 目标**:
+
+- `check-rust` - 检查 Rust 代码但不构建
 - `test-rust` - 运行 Rust 测试
-- `lint` - 代码检查
-- `lint-rust` - Rust 代码检查
-- `lint-python` - Python 代码检查
-- `format` - 格式化代码
-- `testcov` - 生成覆盖率报告
-- `clean` - 清理构建产物
-- `all` - 完整开发流程
+- `lint-rust` - Lint Rust 代码 (fmt + clippy)
+- `doc-rust` - 生成并打开 Rust 文档
+
+**Python 目标**:
+
+- `lint-python` - Lint Python 代码 (ruff + mypy stubtest)
+- `test` - 运行 Python 测试 (并行)
+- `testcov` - 运行测试并生成覆盖率报告
+
+**组合目标**:
+
+- `format` - 格式化所有代码 (Python + Rust)
+- `lint` - Lint 所有代码 (Python + Rust)
+- `all` - 完整开发流程 (format + build + lint + test)
+- `clean` - 清理所有构建产物
 
 ## 依赖管理
 
