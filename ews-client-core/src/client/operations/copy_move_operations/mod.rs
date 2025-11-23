@@ -1,4 +1,5 @@
 pub mod folder;
+pub mod item;
 
 use ews::{Operation, OperationResponse};
 
