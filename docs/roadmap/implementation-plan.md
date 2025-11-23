@@ -2,7 +2,7 @@
 
 ## 当前进度概览
 
-**当前阶段:** Phase 2 - Step 2.2 ✅ 已完成
+**当前阶段:** Phase 2 - Step 2.3 ✅ 已完成
 
 **已完成:**
 
@@ -10,14 +10,14 @@
 - ✅ Phase 1.2: 核心操作实现 (连接检查、文件夹同步、消息获取)
 - ✅ Phase 2.1: 文件夹操作 (创建、删除、更新、复制、移动)
 - ✅ Phase 2.2: 消息操作 (同步、创建、删除、读取状态、垃圾邮件、复制、移动)
+- ✅ Phase 2.3: 发送消息功能
 
 **进行中:**
 
-- 🔄 Phase 2.3: 发送消息功能
+- 🔄 Phase 2.4: 消息头支持
 
 **待开展:**
 
-- ⏸️ Phase 2.4: 消息头支持
 - ⏸️ Phase 1.3: 系统性测试 (优先完成所有操作后再进行)
 - ⏸️ Phase 3: Python 绑定
 - ⏸️ Phase 4: 测试与文档
@@ -131,13 +131,24 @@
 - `mark_as_junk`: 自动检测服务器版本,Exchange 2013+ 使用 MarkAsJunk,旧版本回退到移动操作
 - `copy_items` / `move_items`: 批量操作,自动处理 Exchange 2010 SP1+ 的 ReturnNewItemIds
 
-### Step 2.3: Send Message
+### Step 2.3: Send Message ✅
 
-- [ ] `send_message` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/send_message.rs`
+- [x] `send_message` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/send_message.rs`
 
-**Files to create:**
+**Files created:**
 
 - `ews-client-core/src/client/operations/send_message.rs`
+
+**Status:** ✅ 完成 - 发送消息功能已实现并编译通过。
+
+**实现特性:**
+
+- `send_message`: 使用 CreateItem 操作发送邮件，MessageDisposition 设置为 SendOnly
+- 支持 MIME 内容编码（Base64）
+- 支持设置 Internet Message ID
+- 支持请求送达回执（DSN）
+- 支持 BCC 收件人列表
+- 不保存到已发送文件夹（由客户端负责）
 
 ### Step 2.4: Headers Support
 

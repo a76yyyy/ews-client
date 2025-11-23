@@ -18,18 +18,15 @@ mod get_message;
 mod sync_folder_hierarchy;
 mod update_folder;
 
-// Phase 2.2: Message operations
 mod change_read_status;
 mod create_message;
 mod delete_messages;
 mod mark_as_junk;
 mod sync_messages;
 
+mod send_message;
+
 // Re-export public types
 pub use create_message::CreateMessageResult;
 pub use sync_folder_hierarchy::{FolderHierarchySyncResult, FolderInfo};
 pub use sync_messages::{SyncMessageInfo, SyncMessagesResult};
-
-// Phase 2.1: Folder operations - COMPLETED ✅
-// Phase 2.2: Message operations - COMPLETED ✅
-// Phase 2.3: Send message - TODO
