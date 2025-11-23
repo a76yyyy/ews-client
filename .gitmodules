@@ -1,0 +1,3 @@
+[submodule "reference/thunderbird-desktop"]
+	path = reference/thunderbird-desktop
+	url = https://github.com/thunderbird/thunderbird-desktop

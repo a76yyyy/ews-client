@@ -1,0 +1,67 @@
+[workspace]
+members = ["ews-client-core", "ews-client-python"]
+resolver = "2"
+exclude = ["reference/thunderbird-desktop"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+authors = ["a76yyyy <a76yyyy@gmail.com>"]
+
+[workspace.dependencies]
+# EWS Protocol
+ews = { git = "https://github.com/thunderbird/ews-rs.git", version = "0.1.0" }
+
+# Async Runtime
+tokio = { version = "1", features = ["full"] }
+
+# HTTP Client
+reqwest = { version = "0.12", features = ["json"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error Handling
+thiserror = "1.0"
+
+# Utilities
+base64 = "0.22"
+url = "2.5"
+log = "0.4"
+
+# Python Bindings
+pyo3 = { version = "0.27", features = [
+    "extension-module",
+    "generate-import-lib",
+    "num-bigint",
+] }
+pyo3-async-runtimes = { version = "0.27", features = ["tokio-runtime"] }
+pyo3-log = "0.13"
+
+wiremock = "0.6.5"
+
+[workspace.build-dependencies]
+pyo3-build-config = "0.27"
+version_check = "0.9.5"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.bench]
+debug = true
+strip = false
+
+# This is separate to benchmarks because `bench` ends up building testing
+# harnesses into code, as it's a special cargo profile.
+[profile.profiling]
+inherits = "release"
+debug = true
+strip = false
