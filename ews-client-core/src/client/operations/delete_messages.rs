@@ -1,3 +1,5 @@
+//! Deletes one or more messages from the server.
+
 use crate::client::{EwsClient, EwsError, process_response_message_class, validate_response_message_count};
 use ews::{
     BaseItemId, DeleteType, Operation, OperationResponse,

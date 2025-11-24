@@ -1,4 +1,7 @@
+//! Copy and move operations for folders and items
+
 pub mod folder;
+
 pub mod item;
 
 use ews::{Operation, OperationResponse};

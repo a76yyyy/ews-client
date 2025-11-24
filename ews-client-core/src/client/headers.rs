@@ -1,7 +1,8 @@
-/// Message header extraction and manipulation utilities.
-///
-/// This module provides a unified interface for extracting email headers from
-/// different message representations (EWS messages and parsed MIME messages).
+//! Message header extraction and manipulation utilities.
+//!
+//! This module provides a unified interface for extracting email headers from
+//! different message representations (EWS messages and parsed MIME messages).
+
 use std::iter::IntoIterator;
 
 /// A message from which email headers can be retrieved.

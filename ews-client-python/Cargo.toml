@@ -17,3 +17,10 @@ tokio.workspace = true
 
 [features]
 extension-module = ["pyo3/extension-module"]
+
+[build-dependencies]
+pyo3-build-config.workspace = true
+version_check.workspace = true
+
+[lints]
+workspace = true

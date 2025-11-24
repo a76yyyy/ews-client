@@ -1,3 +1,5 @@
+//! Item (message) copy and move operations
+
 use crate::client::{EwsClient, EwsError};
 use ews::{
     BaseFolderId, BaseItemId, CopyMoveItemData, ItemResponseMessage, OperationResponse, copy_item::CopyItem,

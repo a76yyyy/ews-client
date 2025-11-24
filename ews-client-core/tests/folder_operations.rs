@@ -1,6 +1,8 @@
-// Integration tests for folder operations
-// These tests require a live EWS server and are ignored by default
-// Run with: cargo test --package ews-client-core -- --ignored
+//! Integration tests for folder operations
+//!
+//! These tests require a live EWS server and are ignored by default.
+//! Run with: `cargo test --package ews-client-core -- --ignored`
+
 use ews_client_core::client::{Credentials, EwsClient};
 
 // Helper function to create a test client

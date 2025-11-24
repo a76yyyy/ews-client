@@ -1,3 +1,5 @@
+//! Delete a folder via EWS.
+
 use crate::client::{EwsClient, EwsError, process_response_message_class};
 use ews::{
     BaseFolderId, DeleteType, Operation, OperationResponse,

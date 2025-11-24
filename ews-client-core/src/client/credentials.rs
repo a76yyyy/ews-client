@@ -4,10 +4,18 @@ use base64::prelude::*;
 #[derive(Clone)]
 pub enum Credentials {
     /// Basic authentication with username and password
-    Basic { username: String, password: String },
+    Basic {
+        /// Username for authentication
+        username: String,
+        /// Password for authentication
+        password: String,
+    },
 
     /// OAuth2 authentication with bearer token
-    OAuth2 { token: String },
+    OAuth2 {
+        /// OAuth2 bearer token
+        token: String,
+    },
 }
 
 impl Credentials {

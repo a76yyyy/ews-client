@@ -1,3 +1,5 @@
+//! Folder copy and move operations
+
 use crate::client::{EwsClient, EwsError};
 use ews::{
     BaseFolderId, CopyMoveFolderData, Folder, FolderResponseMessage, OperationResponse, copy_folder::CopyFolder,

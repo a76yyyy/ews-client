@@ -1,6 +1,9 @@
+//! EWS client implementation and related types
+
 mod credentials;
 mod error;
 mod headers;
+
 pub mod operations;
 mod server_version;
 mod types;
@@ -118,11 +121,13 @@ impl EwsClient {
     }
 
     /// Get a reference to the HTTP client
+    #[allow(dead_code)]
     pub(crate) fn http_client(&self) -> &Client {
         &self.client
     }
 
     /// Get a reference to the credentials
+    #[allow(dead_code)]
     pub(crate) fn credentials(&self) -> &Credentials {
         &self.credentials
     }
@@ -257,10 +262,10 @@ impl EwsClient {
                 Ok(envelope) => {
                     // If the server responded with a version identifier, store it
                     for header in envelope.headers.iter() {
-                        if let ews::soap::Header::ServerVersionInfo(server_version_info) = header {
-                            if let Err(e) = self.update_server_version(server_version_info.clone()) {
-                                log::warn!("Failed to update server version: {:?}", e);
-                            }
+                        if let ews::soap::Header::ServerVersionInfo(server_version_info) = header
+                            && let Err(e) = self.update_server_version(server_version_info.clone())
+                        {
+                            log::warn!("Failed to update server version: {:?}", e);
                         }
                     }
 

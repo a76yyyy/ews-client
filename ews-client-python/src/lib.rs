@@ -1,3 +1,8 @@
+//! Python bindings for the EWS (Exchange Web Services) client.
+//!
+//! This crate provides Python bindings for the `ews-client-core` library,
+//! allowing Python applications to interact with Microsoft Exchange servers.
+
 mod client;
 mod error;
 mod types;

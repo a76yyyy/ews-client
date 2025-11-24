@@ -1,8 +1,9 @@
-/// Integration tests for core EWS operations
-///
-/// These tests verify that the operations compile and have the correct signatures.
-/// Actual integration tests with a real EWS server would require credentials and
-/// a test environment.
+//! Integration tests for core EWS operations
+//!
+//! These tests verify that the operations compile and have the correct signatures.
+//! Actual integration tests with a real EWS server would require credentials and
+//! a test environment.
+
 #[cfg(test)]
 mod tests {
     use ews_client_core::client::{Credentials, EwsClient};

@@ -1,3 +1,5 @@
+//! Update a folder's display name.
+
 use crate::client::{EwsClient, EwsError, process_response_message_class, single_response_or_error};
 use ews::{
     BaseFolderId, Folder, Operation, OperationResponse, PathToElement,

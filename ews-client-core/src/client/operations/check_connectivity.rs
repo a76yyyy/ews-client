@@ -1,3 +1,5 @@
+//! Performs a connectivity check to the EWS server.
+
 use crate::client::{
     AuthFailureBehavior, EWS_ROOT_FOLDER, EwsClient, EwsError, OperationRequestOptions, process_response_message_class,
     single_response_or_error, validate_get_folder_response_message,

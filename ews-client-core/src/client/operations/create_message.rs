@@ -1,3 +1,5 @@
+//! Create a message via EWS.
+
 use crate::client::{EwsClient, EwsError, MSGFLAG_READ, MSGFLAG_UNMODIFIED, MSGFLAG_UNSENT};
 use base64::prelude::{BASE64_STANDARD, Engine};
 use ews::{

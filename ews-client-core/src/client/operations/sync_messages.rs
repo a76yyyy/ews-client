@@ -1,3 +1,5 @@
+//! Sync messages in a folder.
+
 use crate::client::{EwsClient, EwsError, process_response_message_class, single_response_or_error};
 use ews::{
     BaseFolderId, BaseShape, ItemShape, Operation, OperationResponse,
@@ -24,13 +26,21 @@ pub struct SyncMessagesResult {
 /// Detailed message information from sync
 #[derive(Debug, Clone)]
 pub struct SyncMessageInfo {
+    /// The EWS item ID of the message
     pub item_id: String,
+    /// Whether the message has been read
     pub is_read: Option<bool>,
+    /// The Internet message ID (RFC 2822 Message-ID header)
     pub internet_message_id: Option<String>,
+    /// The date and time the message was sent (Unix timestamp)
     pub date_time_sent: Option<i64>,
+    /// The sender's email address
     pub from: Option<String>,
+    /// The message subject
     pub subject: Option<String>,
+    /// Whether the message has attachments
     pub has_attachments: Option<bool>,
+    /// The size of the message in bytes
     pub size: Option<usize>,
 }
 

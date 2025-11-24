@@ -1,3 +1,5 @@
+//! Get a message via EWS.
+
 use crate::client::{EwsClient, EwsError};
 use base64::prelude::{BASE64_STANDARD, Engine};
 

@@ -1,3 +1,5 @@
+//! Server version detection and management.
+
 use dashmap::DashMap;
 use ews::server_version::ExchangeServerVersion;
 use std::sync::LazyLock;

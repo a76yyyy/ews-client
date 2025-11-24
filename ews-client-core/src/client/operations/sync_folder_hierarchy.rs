@@ -1,3 +1,5 @@
+//! Sync folder hierarchy.
+
 use ews::{
     BaseFolderId, BaseShape, Folder, FolderShape, OperationResponse,
     sync_folder_hierarchy::{self, SyncFolderHierarchy},

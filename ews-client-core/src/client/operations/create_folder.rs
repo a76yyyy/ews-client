@@ -1,3 +1,5 @@
+//! Create a folder via EWS.
+
 use crate::client::{EwsClient, EwsError, process_response_message_class, single_response_or_error};
 use ews::{BaseFolderId, Folder, Operation, OperationResponse, create_folder::CreateFolder};
 

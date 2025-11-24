@@ -1,3 +1,5 @@
+//! Mark messages as junk or not junk.
+
 use crate::client::{EwsClient, EwsError, process_response_message_class, validate_response_message_count};
 use ews::{BaseItemId, Operation, OperationResponse, mark_as_junk::MarkAsJunk};
 

@@ -1,3 +1,5 @@
+//! Marks one or more messages as read or unread.
+
 use crate::client::{EwsClient, EwsError, process_response_message_class, single_response_or_error};
 use ews::{
     BaseItemId, Message, MessageDisposition, Operation, OperationResponse, PathToElement,
@@ -141,15 +143,15 @@ impl EwsClient {
 
         // The `MarkAllItemsAsRead` operation was added in Exchange 2013
         let server_version = Some(self.server_version.load());
-        if let Some(version) = server_version {
-            if version < ews::server_version::ExchangeServerVersion::Exchange2013 {
-                return Err(EwsError::Processing {
-                    message: format!(
-                        "MarkAllItemsAsRead operation is not supported on Exchange version {:?}. Requires Exchange 2013 or later.",
-                        version
-                    ),
-                });
-            }
+        if let Some(version) = server_version
+            && version < ews::server_version::ExchangeServerVersion::Exchange2013
+        {
+            return Err(EwsError::Processing {
+                message: format!(
+                    "MarkAllItemsAsRead operation is not supported on Exchange version {:?}. Requires Exchange 2013 or later.",
+                    version
+                ),
+            });
         }
 
         let folder_ids: Vec<BaseFolderId> = folder_ids

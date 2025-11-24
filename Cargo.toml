@@ -48,7 +48,7 @@ pyo3-log = "0.13"
 
 wiremock = "0.6.5"
 
-[workspace.build-dependencies]
+# Build Dependencies
 pyo3-build-config = "0.27"
 version_check = "0.9.5"
 
@@ -71,3 +71,7 @@ strip = false
 inherits = "release"
 debug = true
 strip = false
+
+[workspace.lints.rust]
+# 强烈建议：作为库，公开的 API 必须有文档
+missing_docs = "warn"

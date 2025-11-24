@@ -1,8 +1,11 @@
+//! HTTP Client for EWS, Implemented from Rust to Python
+
 use ews_client_core::{Credentials, EwsClient};
 use pyo3::prelude::*;
 
 #[pyclass]
 pub struct PyEwsClient {
+    #[allow(dead_code)]
     inner: EwsClient,
 }
 
