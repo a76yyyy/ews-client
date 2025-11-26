@@ -83,6 +83,8 @@ asyncio_default_fixture_loop_scope = "function"
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+# 排除 reference 目录，pytest 将不会递归查找该目录下的测试文件
+norecursedirs = ["reference"]
 # 显示详细输出
 addopts = "-v"
 # 日志配置
