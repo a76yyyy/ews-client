@@ -12,14 +12,15 @@ pub struct PyEwsClient {
 #[pymethods]
 impl PyEwsClient {
     #[new]
+    #[allow(clippy::needless_pass_by_value)]
     fn new(endpoint: String, username: String, password: String) -> PyResult<Self> {
         let endpoint = endpoint
             .parse()
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{}", e)))?;
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))?;
 
         let credentials = Credentials::basic(username, password);
         let client = EwsClient::new(endpoint, credentials)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?;
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{e}")))?;
 
         Ok(Self { inner: client })
     }

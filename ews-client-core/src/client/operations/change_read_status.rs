@@ -1,6 +1,8 @@
 //! Marks one or more messages as read or unread.
 
-use crate::client::{EwsClient, EwsError, process_response_message_class, single_response_or_error};
+use crate::client::{
+    EwsClient, EwsError, OperationRequestOptions, process_response_message_class, single_response_or_error,
+};
 use ews::{
     BaseItemId, Message, MessageDisposition, Operation, OperationResponse, PathToElement,
     update_item::{ConflictResolution, ItemChange, ItemChangeDescription, ItemChangeInner, UpdateItem, Updates},
@@ -16,6 +18,16 @@ impl EwsClient {
     /// # Returns
     ///
     /// A vector of EWS IDs for the successfully updated messages
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Network or authentication errors occur
+    /// - All messages fail to update (partial failures are logged but don't cause an error)
+    ///
+    /// # Panics
+    ///
+    /// May panic if the response structure is unexpected (should not happen with valid EWS servers)
     ///
     /// # Example
     ///
@@ -46,7 +58,7 @@ impl EwsClient {
                 ItemChange {
                     item_change: ItemChangeInner {
                         item_id: BaseItemId::ItemId {
-                            id: id.to_string(),
+                            id: (*id).to_string(),
                             change_key: None,
                         },
                         updates,
@@ -85,8 +97,11 @@ impl EwsClient {
         let updated_ids: Vec<String> = successes
             .into_iter()
             .flat_map(|(_, success)| {
-                let message = success.expect("partition should only populate this with okays");
-                message.items.inner.into_iter()
+                // partition ensures this is Ok
+                match success {
+                    Ok(message) => message.items.inner,
+                    Err(_) => vec![],
+                }
             })
             .filter_map(|item| item.inner_message().item_id.as_ref().map(|id| id.id.clone()))
             .collect();
@@ -94,17 +109,17 @@ impl EwsClient {
         // If there were errors, log them but still return the successful IDs
         if !errors.is_empty() {
             let num_errs = errors.len();
-            let (index, ref first_err) = errors[0];
-            let first_error = first_err
-                .as_ref()
-                .expect_err("partition should only populate this with errs");
-            log::warn!(
-                "change_read_status: {} of {} messages failed to update; first error (at index {}): {:?}",
-                num_errs,
-                item_ids.len(),
-                index,
-                first_error
-            );
+            if let Some((index, first_err)) = errors.first()
+                && let Err(first_error) = first_err
+            {
+                log::warn!(
+                    "change_read_status: {} of {} messages failed to update; first error (at index {}): {:?}",
+                    num_errs,
+                    item_ids.len(),
+                    index,
+                    first_error
+                );
+            }
         }
 
         Ok(updated_ids)
@@ -121,6 +136,13 @@ impl EwsClient {
     /// # Returns
     ///
     /// Ok(()) if the operation succeeds
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Any folder does not exist
+    /// - Network or authentication errors occur
+    /// - The server returns an unexpected response
     ///
     /// # Example
     ///
@@ -148,8 +170,7 @@ impl EwsClient {
         {
             return Err(EwsError::Processing {
                 message: format!(
-                    "MarkAllItemsAsRead operation is not supported on Exchange version {:?}. Requires Exchange 2013 or later.",
-                    version
+                    "MarkAllItemsAsRead operation is not supported on Exchange version {version:?}. Requires Exchange 2013 or later."
                 ),
             });
         }
@@ -157,7 +178,7 @@ impl EwsClient {
         let folder_ids: Vec<BaseFolderId> = folder_ids
             .iter()
             .map(|id| BaseFolderId::FolderId {
-                id: id.to_string(),
+                id: (*id).to_string(),
                 change_key: None,
             })
             .collect();
@@ -168,7 +189,9 @@ impl EwsClient {
             folder_ids,
         };
 
-        let response = self.make_operation_request(mark_all_items, Default::default()).await?;
+        let response = self
+            .make_operation_request(mark_all_items, OperationRequestOptions::default())
+            .await?;
 
         let response_messages = response.into_response_messages();
 

@@ -52,7 +52,9 @@ impl EwsClient {
         }
 
         // Extract the Internet Message Format content of the message from the response
-        let item = items.into_iter().next().unwrap();
+        let item = items.into_iter().next().ok_or_else(|| EwsError::Processing {
+            message: "no item in response".to_string(),
+        })?;
         let message = item.inner_message();
 
         let raw_mime = message.mime_content.as_ref().ok_or_else(|| EwsError::Processing {

@@ -39,7 +39,7 @@ impl CopyMoveOperationBuilder for MoveItem {
                 item_ids: ids
                     .iter()
                     .map(|id| BaseItemId::ItemId {
-                        id: id.to_string(),
+                        id: (*id).to_string(),
                         change_key: None,
                     })
                     .collect(),
@@ -68,7 +68,7 @@ impl CopyMoveOperationBuilder for CopyItem {
                 item_ids: ids
                     .iter()
                     .map(|id| BaseItemId::ItemId {
-                        id: id.to_string(),
+                        id: (*id).to_string(),
                         change_key: None,
                     })
                     .collect(),
@@ -89,6 +89,14 @@ impl EwsClient {
     /// # Returns
     ///
     /// A vector of EWS IDs for the newly copied messages
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The destination folder does not exist
+    /// - Any source message does not exist
+    /// - Network or authentication errors occur
+    /// - The response count doesn't match the request count
     ///
     /// # Example
     ///
@@ -115,6 +123,14 @@ impl EwsClient {
     /// # Returns
     ///
     /// A vector of EWS IDs for the moved messages (typically the same as input IDs)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The destination folder does not exist
+    /// - Any source message does not exist
+    /// - Network or authentication errors occur
+    /// - The response count doesn't match the request count
     ///
     /// # Example
     ///

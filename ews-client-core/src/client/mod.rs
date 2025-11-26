@@ -87,9 +87,9 @@ pub(crate) enum TransportSecFailureBehavior {
 // Message flags are of type `PT_LONG`, which corresponds to i32 (signed 32-bit
 // integers) according to
 // https://learn.microsoft.com/en-us/office/client-developer/outlook/mapi/property-types
-pub(crate) const MSGFLAG_READ: i32 = 0x00000001;
-pub(crate) const MSGFLAG_UNMODIFIED: i32 = 0x00000002;
-pub(crate) const MSGFLAG_UNSENT: i32 = 0x00000008;
+pub(crate) const MSGFLAG_READ: i32 = 0x0000_0001;
+pub(crate) const MSGFLAG_UNMODIFIED: i32 = 0x0000_0002;
+pub(crate) const MSGFLAG_UNSENT: i32 = 0x0000_0008;
 
 /// Pure Rust async EWS client
 pub struct EwsClient {
@@ -98,12 +98,16 @@ pub struct EwsClient {
     client: Client,
     /// The Exchange Server version detected from the server.
     ///
-    /// Uses AtomicCell for lock-free access in hot paths like make_operation_request.
+    /// Uses `AtomicCell` for lock-free access in hot paths like `make_operation_request`.
     pub(crate) server_version: AtomicCell<ExchangeServerVersion>,
 }
 
 impl EwsClient {
     /// Create a new EWS client
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the endpoint URL is invalid or other initialization errors occur.
     pub fn new(endpoint: Url, credentials: Credentials) -> Result<Self, EwsError> {
         let server_version = server_version::read_server_version(&endpoint);
 
@@ -132,26 +136,21 @@ impl EwsClient {
         &self.credentials
     }
 
-    /// Updates the server version from a ServerVersionInfo header
-    pub(crate) fn update_server_version(&self, header: ews::server_version::ServerVersionInfo) -> Result<(), EwsError> {
-        let version = server_version::update_server_version_from_header(&self.endpoint, header)?;
+    /// Updates the server version from a `ServerVersionInfo` header
+    pub(crate) fn update_server_version(&self, header: ews::server_version::ServerVersionInfo) {
+        let version = server_version::update_server_version_from_header(&self.endpoint, header);
 
         // Update the in-memory representation (lock-free atomic operation)
         self.server_version.store(version);
-
-        Ok(())
     }
 
     /// Check if the endpoint is an Office365 server
     pub fn is_office365(&self) -> bool {
-        self.endpoint
-            .host_str()
-            .map(|domain| {
-                OFFICE365_BASE_DOMAINS
-                    .iter()
-                    .any(|o365_domain| domain.ends_with(o365_domain))
-            })
-            .unwrap_or(false)
+        self.endpoint.host_str().is_some_and(|domain| {
+            OFFICE365_BASE_DOMAINS
+                .iter()
+                .any(|o365_domain| domain.ends_with(o365_domain))
+        })
     }
 
     /// Makes a request to the EWS endpoint to perform an operation.
@@ -206,13 +205,13 @@ impl EwsClient {
                         {
                             // In ews_xpcom, this would prompt the user for new credentials
                             // and retry. In a pure library, we just log and return the error.
-                            log::error!("Authentication failed for operation {}", op_name);
+                            log::error!("Authentication failed for operation {op_name}");
                             return Err(err);
                         }
 
                         // If auth_failure_behavior is Silent, fail immediately
                         EwsError::Authentication => {
-                            log::debug!("Authentication failed for operation {} (silent mode)", op_name);
+                            log::debug!("Authentication failed for operation {op_name} (silent mode)");
                             return Err(err);
                         }
 
@@ -224,13 +223,11 @@ impl EwsClient {
                             // In a pure library, we just log based on the behavior setting.
                             match options.transport_sec_failure_behavior {
                                 TransportSecFailureBehavior::Alert => {
-                                    log::error!("HTTP/Transport error during operation {}: {:?}", op_name, http_err);
+                                    log::error!("HTTP/Transport error during operation {op_name}: {http_err:?}");
                                 }
                                 TransportSecFailureBehavior::Silent => {
                                     log::debug!(
-                                        "HTTP/Transport error during operation {} (silent mode): {:?}",
-                                        op_name,
-                                        http_err
+                                        "HTTP/Transport error during operation {op_name} (silent mode): {http_err:?}"
                                     );
                                 }
                             }
@@ -245,9 +242,9 @@ impl EwsClient {
             // Check HTTP status
             let status = response.status();
             if !status.is_success() {
-                log::error!("Request FAILED with status {} for operation {}", status, op_name);
+                log::error!("Request FAILED with status {status} for operation {op_name}");
                 return Err(EwsError::Processing {
-                    message: format!("HTTP request failed with status: {}", status),
+                    message: format!("HTTP request failed with status: {status}"),
                 });
             }
 
@@ -261,11 +258,9 @@ impl EwsClient {
             break match op_result {
                 Ok(envelope) => {
                     // If the server responded with a version identifier, store it
-                    for header in envelope.headers.iter() {
-                        if let ews::soap::Header::ServerVersionInfo(server_version_info) = header
-                            && let Err(e) = self.update_server_version(server_version_info.clone())
-                        {
-                            log::warn!("Failed to update server version: {:?}", e);
+                    for header in &envelope.headers {
+                        if let ews::soap::Header::ServerVersionInfo(server_version_info) = header {
+                            self.update_server_version(server_version_info.clone());
                         }
                     }
 
@@ -276,12 +271,8 @@ impl EwsClient {
                     })) = envelope.body.response_messages().first()
                     {
                         let delay_ms = server_busy.back_off_milliseconds;
-                        log::debug!(
-                            "{} returned busy message, will retry after {} milliseconds",
-                            op_name,
-                            delay_ms
-                        );
-                        tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms as u64)).await;
+                        log::debug!("{op_name} returned busy message, will retry after {delay_ms} milliseconds");
+                        tokio::time::sleep(tokio::time::Duration::from_millis(u64::from(delay_ms))).await;
                         continue;
                     }
 
@@ -291,12 +282,8 @@ impl EwsClient {
                     // Check first to see if the request has been throttled and needs to be retried
                     let backoff_delay_ms = maybe_get_backoff_delay_ms(&err);
                     if let Some(backoff_delay_ms) = backoff_delay_ms {
-                        log::debug!(
-                            "{} request throttled, will retry after {} milliseconds",
-                            op_name,
-                            backoff_delay_ms
-                        );
-                        tokio::time::sleep(tokio::time::Duration::from_millis(backoff_delay_ms as u64)).await;
+                        log::debug!("{op_name} request throttled, will retry after {backoff_delay_ms} milliseconds");
+                        tokio::time::sleep(tokio::time::Duration::from_millis(u64::from(backoff_delay_ms))).await;
                         continue;
                     }
 
@@ -322,7 +309,7 @@ impl EwsClient {
         let auth_header_value = self.credentials.to_auth_header();
 
         // Log the request (for debugging)
-        log::info!("Making operation request: {}", op_name);
+        log::info!("Making operation request: {op_name}");
 
         // Send the request
         let response = self
@@ -335,11 +322,7 @@ impl EwsClient {
             .await?;
 
         let response_status = response.status();
-        log::info!(
-            "Response received for operation {} (status {})",
-            op_name,
-            response_status
-        );
+        log::info!("Response received for operation {op_name} (status {response_status})");
 
         // Check for authentication errors (401)
         if response_status == reqwest::StatusCode::UNAUTHORIZED {
@@ -351,7 +334,7 @@ impl EwsClient {
 
     /// Fetches items from the remote Exchange server in batches.
     ///
-    /// This method handles batching of GetItem requests (max 10 items per request)
+    /// This method handles batching of `GetItem` requests (max 10 items per request)
     /// to avoid throttling.
     pub(crate) async fn get_items<IdColl>(
         &self,
@@ -396,13 +379,15 @@ impl EwsClient {
                 item_ids: batch_ids,
             };
 
-            let response = self.make_operation_request(op, Default::default()).await?;
+            let response = self
+                .make_operation_request(op, OperationRequestOptions::default())
+                .await?;
             for response_message in response.into_response_messages() {
                 let message = process_response_message_class("GetItem", response_message)?;
 
                 let items_len = message.items.inner.len();
                 if items_len != 1 {
-                    log::warn!("GetItemResponseMessage contained {} items, only 1 expected", items_len);
+                    log::warn!("GetItemResponseMessage contained {items_len} items, only 1 expected");
                 }
 
                 items.extend(message.items.inner.into_iter());
@@ -414,7 +399,7 @@ impl EwsClient {
 
     /// Fetches folders from the remote Exchange server in batches.
     ///
-    /// This method handles batching of GetFolder requests and filters out
+    /// This method handles batching of `GetFolder` requests and filters out
     /// non-mail folders.
     pub(crate) async fn batch_get_folders(&self, ids: Vec<String>) -> Result<Vec<Folder>, EwsError> {
         let mut folders = Vec::with_capacity(ids.len());
@@ -442,7 +427,9 @@ impl EwsClient {
                 folder_ids: to_fetch,
             };
 
-            let response = self.make_operation_request(op, Default::default()).await?;
+            let response = self
+                .make_operation_request(op, OperationRequestOptions::default())
+                .await?;
             let messages = response.into_response_messages();
 
             let mut fetched = messages
@@ -467,25 +454,22 @@ impl EwsClient {
                                 display_name,
                                 ..
                             } => {
-                                let folder_class = folder_class.as_ref().map(|s| s.as_str());
+                                let folder_class = folder_class.as_ref().map(std::string::String::as_str);
 
                                 // Filter out non-mail folders
-                                match folder_class {
-                                    Some(folder_class) => {
-                                        if folder_class == "IPF.Note" || folder_class.starts_with("IPF.Note.") {
-                                            Some(Ok(folder))
-                                        } else {
-                                            log::debug!("Skipping folder with unsupported class: {}", folder_class);
-                                            None
-                                        }
-                                    }
-                                    None => {
-                                        log::warn!(
-                                            "Skipping folder without a class: {}",
-                                            display_name.clone().unwrap_or("unknown".to_string())
-                                        );
+                                if let Some(folder_class) = folder_class {
+                                    if folder_class == "IPF.Note" || folder_class.starts_with("IPF.Note.") {
+                                        Some(Ok(folder))
+                                    } else {
+                                        log::debug!("Skipping folder with unsupported class: {folder_class}");
                                         None
                                     }
+                                } else {
+                                    log::warn!(
+                                        "Skipping folder without a class: {}",
+                                        display_name.clone().unwrap_or("unknown".to_string())
+                                    );
+                                    None
                                 }
                             }
                             _ => None,
@@ -503,16 +487,16 @@ impl EwsClient {
         Ok(folders)
     }
 
-    /// Performs a CreateItem operation and processes its response.
+    /// Performs a `CreateItem` operation and processes its response.
     pub(crate) async fn make_create_item_request(
         &self,
         create_item: ews::create_item::CreateItem,
     ) -> Result<ews::ItemResponseMessage, EwsError> {
-        self.make_create_item_request_with_options(create_item, Default::default())
+        self.make_create_item_request_with_options(create_item, TransportSecFailureBehavior::default())
             .await
     }
 
-    /// Performs a CreateItem operation with custom options and processes its response.
+    /// Performs a `CreateItem` operation with custom options and processes its response.
     pub(crate) async fn make_create_item_request_with_options(
         &self,
         create_item: ews::create_item::CreateItem,
@@ -536,14 +520,16 @@ impl EwsClient {
         process_response_message_class(ews::create_item::CreateItem::NAME, response_message)
     }
 
-    /// Performs an UpdateItem operation and processes its response.
+    /// Performs an `UpdateItem` operation and processes its response.
     pub(crate) async fn make_update_item_request(
         &self,
         update_item: ews::update_item::UpdateItem,
     ) -> Result<ews::update_item::UpdateItemResponse, EwsError> {
         let expected_response_count = update_item.item_changes.len();
 
-        let response = self.make_operation_request(update_item, Default::default()).await?;
+        let response = self
+            .make_operation_request(update_item, OperationRequestOptions::default())
+            .await?;
 
         let response_messages = response.response_messages();
 
@@ -580,15 +566,15 @@ pub(crate) fn process_response_message_class<T>(
         ResponseClass::Success(message) => Ok(message),
 
         ResponseClass::Warning(message) => {
-            log::warn!("{} operation encountered unknown warning", op_name);
+            log::warn!("{op_name} operation encountered unknown warning");
             Ok(message)
         }
 
-        ResponseClass::Error(err) => Err(err.to_owned().into()),
+        ResponseClass::Error(err) => Err(err.clone().into()),
     }
 }
 
-/// Verifies that a response message for a GetFolder request is valid for a
+/// Verifies that a response message for a `GetFolder` request is valid for a
 /// standard folder.
 ///
 /// Returns the ID of a valid folder for convenience.
@@ -604,12 +590,14 @@ pub(crate) fn validate_get_folder_response_message(
         });
     }
 
-    // Okay to unwrap as we've verified the length.
-    match message.folders.inner.first().unwrap() {
-        Folder::Folder { folder_id, .. } => folder_id.clone().ok_or(EwsError::MissingIdInResponse),
-
-        _ => Err(EwsError::Processing {
+    // We've verified the length is 1, so first() should always return Some
+    match message.folders.inner.first() {
+        Some(Folder::Folder { folder_id, .. }) => folder_id.clone().ok_or(EwsError::MissingIdInResponse),
+        Some(_) => Err(EwsError::Processing {
             message: String::from("expected folder to be of type Folder"),
+        }),
+        None => Err(EwsError::Processing {
+            message: String::from("no folder in response"),
         }),
     }
 }
@@ -644,7 +632,7 @@ pub(crate) fn single_response_or_error<T>(responses: Vec<T>) -> Result<T, EwsErr
         });
     };
     if responses_len != 1 {
-        log::warn!("expected 1 response message, got {}", responses_len);
+        log::warn!("expected 1 response message, got {responses_len}");
     }
     Ok(message)
 }

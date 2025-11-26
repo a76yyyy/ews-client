@@ -4,6 +4,8 @@
 //! Actual integration tests with a real EWS server would require credentials and
 //! a test environment.
 
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 #[cfg(test)]
 mod tests {
     use ews_client_core::client::{Credentials, EwsClient};

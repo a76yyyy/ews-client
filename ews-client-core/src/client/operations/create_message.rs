@@ -28,6 +28,14 @@ impl EwsClient {
     ///
     /// The EWS ID of the newly created message
     ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The folder does not exist
+    /// - The MIME content is invalid
+    /// - Network or authentication errors occur
+    /// - The server returns an unexpected response
+    ///
     /// # Example
     ///
     /// ```no_run
@@ -100,7 +108,9 @@ impl EwsClient {
             });
         }
 
-        let item = &items[0];
+        let item = items.first().ok_or_else(|| EwsError::Processing {
+            message: "no item in CreateItem response".to_string(),
+        })?;
         let message = item.inner_message();
 
         let item_id = message

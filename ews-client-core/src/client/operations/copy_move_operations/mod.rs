@@ -6,7 +6,7 @@ pub mod item;
 
 use ews::{Operation, OperationResponse};
 
-use crate::client::{EwsClient, EwsError, process_response_message_class};
+use crate::client::{EwsClient, EwsError, OperationRequestOptions, process_response_message_class};
 
 /// Trait for EWS operations that copy or move folders or items.
 pub trait CopyMoveOperation: Operation + Clone {
@@ -28,7 +28,7 @@ impl EwsClient {
         let response = self
             .make_operation_request(
                 Op::operation_builder(self, destination_id.to_string(), ids),
-                Default::default(),
+                OperationRequestOptions::default(),
             )
             .await?;
 

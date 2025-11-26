@@ -5,8 +5,6 @@ use ews::server_version::ExchangeServerVersion;
 use std::sync::LazyLock;
 use url::Url;
 
-use super::EwsError;
-
 /// The Exchange Server version to use in requests when we cannot figure out
 /// which one to use (e.g. if the server hasn't provided us with a version
 /// identifier yet). We default to Exchange Server 2007 SP1, which ensures
@@ -19,7 +17,7 @@ pub(super) const DEFAULT_EWS_SERVER_VERSION: ExchangeServerVersion = ExchangeSer
 /// Runtime cache for storing the mapping between EWS endpoints and their detected versions.
 /// This cache persists for the lifetime of the application process.
 ///
-/// Uses DashMap for lock-free concurrent access across multiple EwsClient instances.
+/// Uses `DashMap` for lock-free concurrent access across multiple `EwsClient` instances.
 static SERVER_VERSION_CACHE: LazyLock<DashMap<String, ExchangeServerVersion>> = LazyLock::new(DashMap::new);
 
 /// Reads the version stored for a given EWS endpoint from the runtime cache.
@@ -28,8 +26,7 @@ static SERVER_VERSION_CACHE: LazyLock<DashMap<String, ExchangeServerVersion>> = 
 pub(super) fn read_server_version(endpoint: &Url) -> ExchangeServerVersion {
     SERVER_VERSION_CACHE
         .get(endpoint.as_str())
-        .map(|entry| *entry.value())
-        .unwrap_or(DEFAULT_EWS_SERVER_VERSION)
+        .map_or(DEFAULT_EWS_SERVER_VERSION, |entry| *entry.value())
 }
 
 /// Stores the server version for a given EWS endpoint in the runtime cache.
@@ -37,44 +34,38 @@ pub(super) fn store_server_version(endpoint: &Url, version: ExchangeServerVersio
     SERVER_VERSION_CACHE.insert(endpoint.to_string(), version);
 }
 
-/// Updates the server version from a ServerVersionInfo header.
+/// Updates the server version from a `ServerVersionInfo` header.
 ///
 /// This function:
 /// 1. Parses the version string from the header
-/// 2. Converts it to an ExchangeServerVersion enum
+/// 2. Converts it to an `ExchangeServerVersion` enum
 /// 3. Stores it in the runtime cache for future use
 ///
-/// If the server provides an unknown version, defaults to Exchange2013_SP1.
+/// If the server provides an unknown version, defaults to `Exchange2013_SP1`.
 pub(super) fn update_server_version_from_header(
     endpoint: &Url,
     header: ews::server_version::ServerVersionInfo,
-) -> Result<ExchangeServerVersion, EwsError> {
+) -> ExchangeServerVersion {
     let version = match header.version {
         Some(version) if !version.is_empty() => version,
         // If the server did not include a version identifier, return current cached version
-        _ => return Ok(read_server_version(endpoint)),
+        _ => return read_server_version(endpoint),
     };
 
-    let version = match ExchangeServerVersion::try_from(version.as_str()) {
-        Ok(version) => version,
+    let version = ExchangeServerVersion::try_from(version.as_str()).unwrap_or_else(|_| {
         // If the server included an unknown version, default to the most recent known version
-        Err(_) => {
-            log::warn!(
-                "Unknown server version '{}' for endpoint {}, defaulting to Exchange2013_SP1",
-                version,
-                endpoint
-            );
-            ExchangeServerVersion::Exchange2013_SP1
-        }
-    };
+        log::warn!("Unknown server version '{version}' for endpoint {endpoint}, defaulting to Exchange2013_SP1");
+        ExchangeServerVersion::Exchange2013_SP1
+    });
 
     // Store the version in the runtime cache for future use
     store_server_version(endpoint, version);
 
-    Ok(version)
+    version
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 
@@ -107,7 +98,7 @@ mod tests {
             version: Some("Exchange2013_SP1".to_string()),
         };
 
-        let version = update_server_version_from_header(&endpoint, header).unwrap();
+        let version = update_server_version_from_header(&endpoint, header);
         assert_eq!(version, ExchangeServerVersion::Exchange2013_SP1);
 
         // Verify it was cached
@@ -126,7 +117,7 @@ mod tests {
             version: Some("Exchange2025_Unknown".to_string()),
         };
 
-        let version = update_server_version_from_header(&endpoint, header).unwrap();
+        let version = update_server_version_from_header(&endpoint, header);
         // Should default to Exchange2013_SP1 for unknown versions
         assert_eq!(version, ExchangeServerVersion::Exchange2013_SP1);
     }
@@ -146,7 +137,7 @@ mod tests {
             version: None,
         };
 
-        let version = update_server_version_from_header(&endpoint, header).unwrap();
+        let version = update_server_version_from_header(&endpoint, header);
         // Should return cached version when header has no version
         assert_eq!(version, ExchangeServerVersion::Exchange2010);
     }

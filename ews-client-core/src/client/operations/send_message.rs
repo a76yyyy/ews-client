@@ -20,6 +20,13 @@ impl EwsClient {
     ///
     /// Ok(()) if the message was sent successfully
     ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The MIME content is invalid
+    /// - Network or authentication errors occur
+    /// - The server returns an unexpected response
+    ///
     /// # Example
     ///
     /// ```no_run
@@ -39,10 +46,10 @@ impl EwsClient {
         bcc_recipients: &[Recipient],
     ) -> Result<(), EwsError> {
         // Create the BCC recipients array if there are any
-        let bcc_recipients_array = if !bcc_recipients.is_empty() {
-            Some(ArrayOfRecipients(bcc_recipients.to_vec()))
-        } else {
+        let bcc_recipients_array = if bcc_recipients.is_empty() {
             None
+        } else {
+            Some(ArrayOfRecipients(bcc_recipients.to_vec()))
         };
 
         // Create a new message with the MIME content
@@ -92,7 +99,12 @@ impl EwsClient {
         }
 
         // Process the response and check for errors
-        let response_message = response_messages.into_iter().next().unwrap();
+        let response_message = response_messages
+            .into_iter()
+            .next()
+            .ok_or_else(|| EwsError::Processing {
+                message: "no response message for SendMessage".to_string(),
+            })?;
         crate::client::process_response_message_class(CreateItem::NAME, response_message)?;
 
         Ok(())

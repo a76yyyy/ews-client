@@ -3,6 +3,13 @@
 //! These tests require a live EWS server and are ignored by default.
 //! Run with: `cargo test --package ews-client-core -- --ignored`
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::ignored_unit_patterns,
+    clippy::indexing_slicing
+)]
+
 use ews_client_core::client::{Credentials, EwsClient};
 
 // Helper function to create a test client
@@ -23,7 +30,7 @@ fn create_test_client() -> EwsClient {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "requires live EWS server"]
 async fn test_create_and_delete_folder() {
     let client = create_test_client();
 
@@ -35,7 +42,7 @@ async fn test_create_and_delete_folder() {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    let folder_name = format!("Test Folder {}", timestamp);
+    let folder_name = format!("Test Folder {timestamp}");
     let folder_id = client
         .create_folder(parent_folder_id, &folder_name)
         .await
@@ -51,7 +58,7 @@ async fn test_create_and_delete_folder() {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "requires live EWS server"]
 async fn test_update_folder() {
     let client = create_test_client();
 
@@ -61,14 +68,14 @@ async fn test_update_folder() {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    let original_name = format!("Test Folder {}", timestamp);
+    let original_name = format!("Test Folder {timestamp}");
     let folder_id = client
         .create_folder(parent_folder_id, &original_name)
         .await
         .expect("Failed to create folder");
 
     // Update the folder name
-    let new_name = format!("{} - Updated", original_name);
+    let new_name = format!("{original_name} - Updated");
     client
         .update_folder(&folder_id, &new_name)
         .await
@@ -82,7 +89,7 @@ async fn test_update_folder() {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "requires live EWS server"]
 async fn test_copy_folders() {
     let client = create_test_client();
 
@@ -92,7 +99,7 @@ async fn test_copy_folders() {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    let folder_name = format!("Test Folder {}", timestamp);
+    let folder_name = format!("Test Folder {timestamp}");
     let folder_id = client
         .create_folder(parent_folder_id, &folder_name)
         .await
@@ -110,12 +117,12 @@ async fn test_copy_folders() {
     // Clean up both folders
     let mut all_ids = vec![folder_id];
     all_ids.extend(new_ids);
-    let id_refs: Vec<&str> = all_ids.iter().map(|s| s.as_str()).collect();
+    let id_refs: Vec<&str> = all_ids.iter().map(std::string::String::as_str).collect();
     client.delete_folder(&id_refs).await.expect("Failed to delete folders");
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "requires live EWS server"]
 async fn test_move_folders() {
     let client = create_test_client();
 
@@ -125,7 +132,7 @@ async fn test_move_folders() {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    let folder_name = format!("Test Folder {}", timestamp);
+    let folder_name = format!("Test Folder {timestamp}");
     let folder_id = client
         .create_folder(parent_folder_id, &folder_name)
         .await
@@ -136,7 +143,7 @@ async fn test_move_folders() {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    let dest_folder_name = format!("Dest Folder {}", timestamp2);
+    let dest_folder_name = format!("Dest Folder {timestamp2}");
     let dest_folder_id = client
         .create_folder(parent_folder_id, &dest_folder_name)
         .await
@@ -158,7 +165,7 @@ async fn test_move_folders() {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "requires live EWS server"]
 async fn test_delete_multiple_folders() {
     let client = create_test_client();
 
@@ -169,7 +176,7 @@ async fn test_delete_multiple_folders() {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    let folder_name_1 = format!("Test Folder 1 {}", timestamp1);
+    let folder_name_1 = format!("Test Folder 1 {timestamp1}");
     let folder_id_1 = client
         .create_folder(parent_folder_id, &folder_name_1)
         .await
@@ -179,7 +186,7 @@ async fn test_delete_multiple_folders() {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    let folder_name_2 = format!("Test Folder 2 {}", timestamp2);
+    let folder_name_2 = format!("Test Folder 2 {timestamp2}");
     let folder_id_2 = client
         .create_folder(parent_folder_id, &folder_name_2)
         .await

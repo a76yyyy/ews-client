@@ -1,6 +1,6 @@
 //! Delete a folder via EWS.
 
-use crate::client::{EwsClient, EwsError, process_response_message_class};
+use crate::client::{EwsClient, EwsError, OperationRequestOptions, process_response_message_class};
 use ews::{
     BaseFolderId, DeleteType, Operation, OperationResponse,
     delete_folder::DeleteFolder,
@@ -13,6 +13,12 @@ impl EwsClient {
     /// # Arguments
     ///
     /// * `folder_ids` - A slice of EWS folder IDs to delete
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Network or authentication errors occur
+    /// - The server returns an error for any folder (except `ErrorItemNotFound`, which is ignored)
     ///
     /// # Example
     ///
@@ -28,7 +34,7 @@ impl EwsClient {
         let folder_ids: Vec<BaseFolderId> = folder_ids
             .iter()
             .map(|id| BaseFolderId::FolderId {
-                id: id.to_string(),
+                id: (*id).to_string(),
                 change_key: None,
             })
             .collect();
@@ -38,7 +44,9 @@ impl EwsClient {
             folder_ids,
         };
 
-        let response = self.make_operation_request(delete_folder, Default::default()).await?;
+        let response = self
+            .make_operation_request(delete_folder, OperationRequestOptions::default())
+            .await?;
 
         let response_messages = response.into_response_messages();
         for response_message in response_messages {

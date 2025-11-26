@@ -7,8 +7,8 @@ use ews::{
 use std::collections::HashMap;
 
 use crate::client::{
-    EWS_ROOT_FOLDER, EwsClient, EwsError, process_response_message_class, single_response_or_error,
-    validate_get_folder_response_message,
+    EWS_ROOT_FOLDER, EwsClient, EwsError, OperationRequestOptions, process_response_message_class,
+    single_response_or_error, validate_get_folder_response_message,
 };
 
 /// The result of a folder hierarchy sync operation.
@@ -127,7 +127,7 @@ impl EwsClient {
             };
 
             let response = self
-                .make_operation_request(op, Default::default())
+                .make_operation_request(op, OperationRequestOptions::default())
                 .await?
                 .into_response_messages();
 
@@ -170,16 +170,16 @@ impl EwsClient {
         all_updated_ids.retain(|id| !deleted_set.contains(id));
 
         // Fetch full details for created and updated folders
-        let created_folders = if !all_created_ids.is_empty() {
-            self.fetch_folder_details(all_created_ids).await?
-        } else {
+        let created_folders = if all_created_ids.is_empty() {
             Vec::new()
+        } else {
+            self.fetch_folder_details(all_created_ids).await?
         };
 
-        let updated_folders = if !all_updated_ids.is_empty() {
-            self.fetch_folder_details(all_updated_ids).await?
-        } else {
+        let updated_folders = if all_updated_ids.is_empty() {
             Vec::new()
+        } else {
+            self.fetch_folder_details(all_updated_ids).await?
         };
 
         Ok(FolderHierarchySyncResult {
@@ -215,14 +215,15 @@ impl EwsClient {
         // We should always request the root folder first to simplify processing
         // the response below.
         assert_eq!(
-            DISTINGUISHED_IDS[0], EWS_ROOT_FOLDER,
+            DISTINGUISHED_IDS.first(),
+            Some(&EWS_ROOT_FOLDER),
             "expected first fetched folder to be root"
         );
 
         let ids = DISTINGUISHED_IDS
             .iter()
             .map(|id| BaseFolderId::DistinguishedFolderId {
-                id: id.to_string(),
+                id: (*id).to_string(),
                 change_key: None,
             })
             .collect();
@@ -236,7 +237,9 @@ impl EwsClient {
             folder_ids: ids,
         };
 
-        let response = self.make_operation_request(op, Default::default()).await?;
+        let response = self
+            .make_operation_request(op, OperationRequestOptions::default())
+            .await?;
 
         let response_messages = response.into_response_messages();
         crate::client::validate_response_message_count(&response_messages, DISTINGUISHED_IDS.len())?;
@@ -247,7 +250,9 @@ impl EwsClient {
         let mut message_iter = DISTINGUISHED_IDS.iter().zip(response_messages);
 
         // Record the root folder for messages before processing the other responses
-        let (_, response_class) = message_iter.next().unwrap();
+        let (_, response_class) = message_iter.next().ok_or_else(|| EwsError::Processing {
+            message: "no response for root folder".to_string(),
+        })?;
         let message = process_response_message_class("GetFolder", response_class)?;
 
         // Any error fetching the root folder is fatal, since we can't correctly

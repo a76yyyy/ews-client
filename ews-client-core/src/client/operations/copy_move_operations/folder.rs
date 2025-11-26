@@ -31,7 +31,7 @@ impl CopyMoveOperationBuilder for MoveFolder {
                 folder_ids: ids
                     .iter()
                     .map(|id| BaseFolderId::FolderId {
-                        id: id.to_string(),
+                        id: (*id).to_string(),
                         change_key: None,
                     })
                     .collect(),
@@ -51,7 +51,7 @@ impl CopyMoveOperationBuilder for CopyFolder {
                 folder_ids: ids
                     .iter()
                     .map(|id| BaseFolderId::FolderId {
-                        id: id.to_string(),
+                        id: (*id).to_string(),
                         change_key: None,
                     })
                     .collect(),
@@ -71,6 +71,14 @@ impl EwsClient {
     /// # Returns
     ///
     /// A vector of EWS IDs for the newly copied folders
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The destination folder does not exist
+    /// - Any source folder does not exist
+    /// - Network or authentication errors occur
+    /// - The response count doesn't match the request count
     ///
     /// # Example
     ///
@@ -101,6 +109,14 @@ impl EwsClient {
     /// # Returns
     ///
     /// A vector of EWS IDs for the moved folders (typically the same as input IDs)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The destination folder does not exist
+    /// - Any source folder does not exist
+    /// - Network or authentication errors occur
+    /// - The response count doesn't match the request count
     ///
     /// # Example
     ///

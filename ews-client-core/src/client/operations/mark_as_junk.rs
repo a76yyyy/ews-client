@@ -1,12 +1,14 @@
 //! Mark messages as junk or not junk.
 
-use crate::client::{EwsClient, EwsError, process_response_message_class, validate_response_message_count};
+use crate::client::{
+    EwsClient, EwsError, OperationRequestOptions, process_response_message_class, validate_response_message_count,
+};
 use ews::{BaseItemId, Operation, OperationResponse, mark_as_junk::MarkAsJunk};
 
 impl EwsClient {
     /// Marks one or more messages as junk or not junk.
     ///
-    /// Uses the MarkAsJunk operation (Exchange 2013+).
+    /// Uses the `MarkAsJunk` operation (Exchange 2013+).
     /// For older versions, falls back to moving items to the junk folder.
     ///
     /// # Arguments
@@ -18,6 +20,14 @@ impl EwsClient {
     /// # Returns
     ///
     /// A vector of EWS IDs for the successfully updated messages
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Any message does not exist
+    /// - Network or authentication errors occur
+    /// - The server returns an unexpected response
+    /// - For legacy versions: the junk folder ID is invalid or empty
     pub async fn mark_as_junk(
         &self,
         item_ids: &[&str],
@@ -26,9 +36,8 @@ impl EwsClient {
     ) -> Result<Vec<String>, EwsError> {
         // The `MarkAsJunk` operation was added in Exchange 2013
         let server_version = Some(self.server_version.load());
-        let use_mark_as_junk = server_version
-            .map(|v| v >= ews::server_version::ExchangeServerVersion::Exchange2013)
-            .unwrap_or(true); // Default to true if we can't determine version
+        let use_mark_as_junk =
+            server_version.is_none_or(|v| v >= ews::server_version::ExchangeServerVersion::Exchange2013); // Default to true if we can't determine version
 
         if use_mark_as_junk {
             // Try modern MarkAsJunk operation
@@ -47,7 +56,7 @@ impl EwsClient {
         let item_ids_vec: Vec<BaseItemId> = item_ids
             .iter()
             .map(|id| BaseItemId::ItemId {
-                id: id.to_string(),
+                id: (*id).to_string(),
                 change_key: None,
             })
             .collect();
@@ -58,7 +67,9 @@ impl EwsClient {
             item_ids: item_ids_vec,
         };
 
-        let response = self.make_operation_request(mark_as_junk, Default::default()).await?;
+        let response = self
+            .make_operation_request(mark_as_junk, OperationRequestOptions::default())
+            .await?;
 
         let response_messages = response.into_response_messages();
 
@@ -74,7 +85,7 @@ impl EwsClient {
                     updated_ids.push(message.moved_item_id.id);
                 }
                 Err(err) => {
-                    log::warn!("Error marking message as junk: {:?}", err);
+                    log::warn!("Error marking message as junk: {err:?}");
                 }
             }
         }

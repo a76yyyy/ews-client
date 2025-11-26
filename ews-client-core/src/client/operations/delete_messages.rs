@@ -1,6 +1,8 @@
 //! Deletes one or more messages from the server.
 
-use crate::client::{EwsClient, EwsError, process_response_message_class, validate_response_message_count};
+use crate::client::{
+    EwsClient, EwsError, OperationRequestOptions, process_response_message_class, validate_response_message_count,
+};
 use ews::{
     BaseItemId, DeleteType, Operation, OperationResponse,
     delete_item::DeleteItem,
@@ -20,6 +22,12 @@ impl EwsClient {
     ///
     /// Ok(()) if the operation succeeds (even if some messages don't exist)
     ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Network or authentication errors occur
+    /// - The server returns an unexpected error (other than `ErrorItemNotFound`)
+    ///
     /// # Example
     ///
     /// ```no_run
@@ -34,7 +42,7 @@ impl EwsClient {
         let item_ids_vec: Vec<BaseItemId> = item_ids
             .iter()
             .map(|id| BaseItemId::ItemId {
-                id: id.to_string(),
+                id: (*id).to_string(),
                 change_key: None,
             })
             .collect();
@@ -47,7 +55,9 @@ impl EwsClient {
             suppress_read_receipts: None,
         };
 
-        let response = self.make_operation_request(delete_item, Default::default()).await?;
+        let response = self
+            .make_operation_request(delete_item, OperationRequestOptions::default())
+            .await?;
 
         let response_messages = response.into_response_messages();
 
@@ -74,13 +84,12 @@ impl EwsClient {
                         // We silently ignore this error to allow the caller to clean up
                         // their local state without failing the entire operation.
                         log::warn!(
-                            "message not found on EWS server during delete (may have been already deleted): {}",
-                            ews_id
+                            "message not found on EWS server during delete (may have been already deleted): {ews_id}"
                         );
                         Ok(())
                     } else {
                         Err(EwsError::Processing {
-                            message: format!("error while attempting to delete message {}: {:?}", ews_id, err),
+                            message: format!("error while attempting to delete message {ews_id}: {err:?}"),
                         })
                     }
                 } else {

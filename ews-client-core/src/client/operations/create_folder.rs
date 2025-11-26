@@ -1,6 +1,8 @@
 //! Create a folder via EWS.
 
-use crate::client::{EwsClient, EwsError, process_response_message_class, single_response_or_error};
+use crate::client::{
+    EwsClient, EwsError, OperationRequestOptions, process_response_message_class, single_response_or_error,
+};
 use ews::{BaseFolderId, Folder, Operation, OperationResponse, create_folder::CreateFolder};
 
 impl EwsClient {
@@ -14,6 +16,13 @@ impl EwsClient {
     /// # Returns
     ///
     /// The EWS ID of the newly created folder
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The parent folder does not exist
+    /// - Network or authentication errors occur
+    /// - The server returns an unexpected response
     ///
     /// # Example
     ///
@@ -43,7 +52,9 @@ impl EwsClient {
             }],
         };
 
-        let response = self.make_operation_request(op, Default::default()).await?;
+        let response = self
+            .make_operation_request(op, OperationRequestOptions::default())
+            .await?;
 
         // Validate the response
         let response_messages = response.into_response_messages();
@@ -57,15 +68,19 @@ impl EwsClient {
             });
         }
 
-        let folder_id = match folders.into_iter().next().unwrap() {
-            Folder::Folder { folder_id, .. } => match folder_id {
+        let folder_id = match folders.into_iter().next() {
+            Some(Folder::Folder { folder_id, .. }) => match folder_id {
                 Some(folder_id) => folder_id.id,
                 None => return Err(EwsError::MissingIdInResponse),
             },
-
-            _ => {
+            Some(_) => {
                 return Err(EwsError::Processing {
                     message: "created folder of unexpected type".to_string(),
+                });
+            }
+            None => {
+                return Err(EwsError::Processing {
+                    message: "no folder in response".to_string(),
                 });
             }
         };

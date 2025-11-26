@@ -1,6 +1,8 @@
 //! Sync messages in a folder.
 
-use crate::client::{EwsClient, EwsError, process_response_message_class, single_response_or_error};
+use crate::client::{
+    EwsClient, EwsError, OperationRequestOptions, process_response_message_class, single_response_or_error,
+};
 use ews::{
     BaseFolderId, BaseShape, ItemShape, Operation, OperationResponse,
     sync_folder_items::{self, SyncFolderItems},
@@ -54,7 +56,15 @@ impl EwsClient {
     ///
     /// # Returns
     ///
-    /// A SyncMessagesResult containing the changes and new sync state
+    /// A `SyncMessagesResult` containing the changes and new sync state
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The folder does not exist
+    /// - The sync state is invalid
+    /// - Network or authentication errors occur
+    /// - The server returns an unexpected response
     ///
     /// # Example
     ///
@@ -74,9 +84,6 @@ impl EwsClient {
         folder_id: &str,
         sync_state: Option<String>,
     ) -> Result<SyncMessagesResult, EwsError> {
-        let mut all_result = SyncMessagesResult::default();
-        let mut current_sync_state = sync_state;
-
         // Track the final state of each message ID
         // We iterate over changes in chronological order, so the last change wins
         #[derive(Debug, Clone, Copy, PartialEq)]
@@ -86,6 +93,8 @@ impl EwsClient {
             Deleted,
         }
 
+        let mut all_result = SyncMessagesResult::default();
+        let mut current_sync_state = sync_state;
         let mut message_states: std::collections::HashMap<String, MessageState> = std::collections::HashMap::new();
         let mut read_status_map: std::collections::HashMap<String, bool> = std::collections::HashMap::new();
 
@@ -108,7 +117,9 @@ impl EwsClient {
                 sync_scope: None,
             };
 
-            let response = self.make_operation_request(op, Default::default()).await?;
+            let response = self
+                .make_operation_request(op, OperationRequestOptions::default())
+                .await?;
 
             let response_messages = response.into_response_messages();
 
@@ -118,7 +129,7 @@ impl EwsClient {
 
             // Process each change in chronological order
             // The last change for a given message ID wins
-            for change in message.changes.inner.into_iter() {
+            for change in message.changes.inner {
                 match change {
                     sync_folder_items::Change::Create { item } => {
                         if let Some(item_id) = &item.inner_message().item_id {
@@ -141,7 +152,7 @@ impl EwsClient {
             }
 
             // Update sync state
-            all_result.sync_state = message.sync_state.clone();
+            all_result.sync_state = message.sync_state;
             all_result.includes_last_item = message.includes_last_item_in_range;
 
             // If we've reached the end, break the loop
@@ -150,7 +161,7 @@ impl EwsClient {
             }
 
             // Otherwise, prepare for the next iteration
-            current_sync_state = Some(message.sync_state);
+            current_sync_state = Some(all_result.sync_state.clone());
         }
 
         // Convert the final states to vectors

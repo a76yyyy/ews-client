@@ -1,6 +1,8 @@
 //! Update a folder's display name.
 
-use crate::client::{EwsClient, EwsError, process_response_message_class, single_response_or_error};
+use crate::client::{
+    EwsClient, EwsError, OperationRequestOptions, process_response_message_class, single_response_or_error,
+};
 use ews::{
     BaseFolderId, Folder, Operation, OperationResponse, PathToElement,
     update_folder::{FolderChange, FolderChanges, UpdateFolder, Updates},
@@ -13,6 +15,13 @@ impl EwsClient {
     ///
     /// * `folder_id` - The EWS ID of the folder to update
     /// * `folder_name` - The new display name for the folder
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The folder does not exist
+    /// - Network or authentication errors occur
+    /// - The server returns an unexpected response
     ///
     /// # Example
     ///
@@ -51,7 +60,9 @@ impl EwsClient {
             },
         };
 
-        let response = self.make_operation_request(update_folder, Default::default()).await?;
+        let response = self
+            .make_operation_request(update_folder, OperationRequestOptions::default())
+            .await?;
         let response_messages = response.into_response_messages();
         let response_message = single_response_or_error(response_messages)?;
         process_response_message_class(UpdateFolder::NAME, response_message)?;

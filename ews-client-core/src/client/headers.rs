@@ -20,24 +20,24 @@ pub trait MessageHeaders {
     fn has_attachments(&self) -> Option<bool>;
 
     /// The time the message was sent, as a Unix timestamp converted to
-    /// microseconds (compatible with Thunderbird's PRTime format).
+    /// microseconds (compatible with Thunderbird's `PRTime` format).
     fn sent_timestamp_us(&self) -> Option<i64>;
 
     /// The author for this message. This can be the value of either the `From`
     /// or `Sender` header (in order of preference).
-    fn author<'a>(&'a self) -> Option<Mailbox<'a>>;
+    fn author(&self) -> Option<Mailbox<'_>>;
 
     /// The `Reply-To` header for this message.
-    fn reply_to_recipients<'a>(&'a self) -> Option<impl IntoIterator<Item = Mailbox<'a>>>;
+    fn reply_to_recipients(&self) -> Option<impl IntoIterator<Item = Mailbox<'_>>>;
 
     /// The `To` header for this message.
-    fn to_recipients<'a>(&'a self) -> Option<impl IntoIterator<Item = Mailbox<'a>>>;
+    fn to_recipients(&self) -> Option<impl IntoIterator<Item = Mailbox<'_>>>;
 
     /// The `Cc` header for this message.
-    fn cc_recipients<'a>(&'a self) -> Option<impl IntoIterator<Item = Mailbox<'a>>>;
+    fn cc_recipients(&self) -> Option<impl IntoIterator<Item = Mailbox<'_>>>;
 
     /// The `Bcc` header for this message.
-    fn bcc_recipients<'a>(&'a self) -> Option<impl IntoIterator<Item = Mailbox<'a>>>;
+    fn bcc_recipients(&self) -> Option<impl IntoIterator<Item = Mailbox<'_>>>;
 
     /// The `Subject` header for this message.
     fn message_subject(&self) -> Option<impl AsRef<str>>;
@@ -56,7 +56,7 @@ pub trait MessageHeaders {
     fn preview(&self) -> Option<impl AsRef<str>>;
 }
 
-/// Implementation of MessageHeaders for EWS Message type.
+/// Implementation of `MessageHeaders` for EWS Message type.
 impl MessageHeaders for &ews::Message {
     fn internet_message_id(&self) -> Option<impl AsRef<str>> {
         self.internet_message_id.as_ref()
@@ -85,40 +85,36 @@ impl MessageHeaders for &ews::Message {
                     |item_id| item_id.id.as_str(),
                 );
 
-                log::warn!(
-                    "message with ID {} sent date {:?} too big for i64, ignoring",
-                    item_id,
-                    date_time
-                );
+                log::warn!("message with ID {item_id} sent date {date_time:?} too big for i64, ignoring");
             }
 
             time_in_micros
         })
     }
 
-    fn author<'a>(&'a self) -> Option<Mailbox<'a>> {
+    fn author(&self) -> Option<Mailbox<'_>> {
         self.from
             .as_ref()
             .or(self.sender.as_ref())
             .map(|recipient| Mailbox::from(&recipient.mailbox))
     }
 
-    fn reply_to_recipients<'a>(&'a self) -> Option<impl IntoIterator<Item = Mailbox<'a>>> {
+    fn reply_to_recipients(&self) -> Option<impl IntoIterator<Item = Mailbox<'_>>> {
         self.reply_to
             .as_ref()
             .map(|recipients| &recipients.0)
             .map(|recipients| recipients.iter().map(|recipient| Mailbox::from(&recipient.mailbox)))
     }
 
-    fn to_recipients<'a>(&'a self) -> Option<impl IntoIterator<Item = Mailbox<'a>>> {
+    fn to_recipients(&self) -> Option<impl IntoIterator<Item = Mailbox<'_>>> {
         self.to_recipients.as_ref().map(array_of_recipients_to_mailboxes)
     }
 
-    fn cc_recipients<'a>(&'a self) -> Option<impl IntoIterator<Item = Mailbox<'a>>> {
+    fn cc_recipients(&self) -> Option<impl IntoIterator<Item = Mailbox<'_>>> {
         self.cc_recipients.as_ref().map(array_of_recipients_to_mailboxes)
     }
 
-    fn bcc_recipients<'a>(&'a self) -> Option<impl IntoIterator<Item = Mailbox<'a>>> {
+    fn bcc_recipients(&self) -> Option<impl IntoIterator<Item = Mailbox<'_>>> {
         self.bcc_recipients.as_ref().map(array_of_recipients_to_mailboxes)
     }
 
@@ -147,7 +143,7 @@ impl MessageHeaders for &ews::Message {
     }
 }
 
-/// Implementation of MessageHeaders for mail_parser::Message type.
+/// Implementation of `MessageHeaders` for `mail_parser::Message` type.
 impl MessageHeaders for mail_parser::Message<'_> {
     fn internet_message_id(&self) -> Option<impl AsRef<str>> {
         self.message_id()
@@ -164,21 +160,21 @@ impl MessageHeaders for mail_parser::Message<'_> {
     }
 
     fn sent_timestamp_us(&self) -> Option<i64> {
-        self.date()
-            .and_then(|date_time| match date_time.to_timestamp().checked_mul(1_000 * 1_000) {
-                Some(timestamp_us) => Some(timestamp_us),
-                None => {
-                    log::warn!(
-                        "message with ID {} sent date {:?} too big for i64, ignoring",
-                        self.message_id().unwrap_or("<none>"),
-                        date_time
-                    );
-                    None
-                }
-            })
+        self.date().and_then(|date_time| {
+            if let Some(timestamp_us) = date_time.to_timestamp().checked_mul(1_000 * 1_000) {
+                Some(timestamp_us)
+            } else {
+                log::warn!(
+                    "message with ID {} sent date {:?} too big for i64, ignoring",
+                    self.message_id().unwrap_or("<none>"),
+                    date_time
+                );
+                None
+            }
+        })
     }
 
-    fn author<'a>(&'a self) -> Option<Mailbox<'a>> {
+    fn author(&self) -> Option<Mailbox<'_>> {
         self.from()
             .or(self.sender())
             .and_then(mail_parser::Address::first)
@@ -194,15 +190,15 @@ impl MessageHeaders for mail_parser::Message<'_> {
         })
     }
 
-    fn to_recipients<'a>(&'a self) -> Option<impl IntoIterator<Item = Mailbox<'a>>> {
+    fn to_recipients(&self) -> Option<impl IntoIterator<Item = Mailbox<'_>>> {
         self.to().map(address_to_mailboxes)
     }
 
-    fn cc_recipients<'a>(&'a self) -> Option<impl IntoIterator<Item = Mailbox<'a>>> {
+    fn cc_recipients(&self) -> Option<impl IntoIterator<Item = Mailbox<'_>>> {
         self.cc().map(address_to_mailboxes)
     }
 
-    fn bcc_recipients<'a>(&'a self) -> Option<impl IntoIterator<Item = Mailbox<'a>>> {
+    fn bcc_recipients(&self) -> Option<impl IntoIterator<Item = Mailbox<'_>>> {
         self.bcc().map(address_to_mailboxes)
     }
 
@@ -250,7 +246,7 @@ fn address_to_mailboxes<'a>(address: &'a mail_parser::Address) -> impl Iterator<
 
 /// Gets an iterator of mailboxes from an EWS representation of a list of
 /// recipients.
-fn array_of_recipients_to_mailboxes<'a>(recipients: &'a ews::ArrayOfRecipients) -> impl Iterator<Item = Mailbox<'a>> {
+fn array_of_recipients_to_mailboxes(recipients: &ews::ArrayOfRecipients) -> impl Iterator<Item = Mailbox<'_>> {
     recipients.iter().map(|recipient| Mailbox::from(&recipient.mailbox))
 }
 
@@ -277,7 +273,7 @@ impl<'a> TryFrom<&'a mail_parser::Addr<'_>> for Mailbox<'a> {
 
     fn try_from(value: &'a mail_parser::Addr) -> Result<Self, Self::Error> {
         value.address.as_ref().ok_or(()).map(|address| Mailbox {
-            name: value.name.as_ref().map(|name| name.as_ref()),
+            name: value.name.as_ref().map(std::convert::AsRef::as_ref),
             email_address: Some(address.as_ref()),
         })
     }
@@ -300,24 +296,24 @@ impl std::fmt::Display for Mailbox<'_> {
             // Encode the name using RFC 2047 if needed
             // This handles non-ASCII characters properly
             if let Err(e) = mail_builder::encoders::encode::rfc2047_encode(name, &mut buf) {
-                log::warn!("Failed to RFC 2047 encode mailbox name: {:?}, using raw name", e);
-                write!(f, "{}", name)?;
+                log::warn!("Failed to RFC 2047 encode mailbox name: {e:?}, using raw name");
+                write!(f, "{name}")?;
             } else {
                 // RFC 2047 encoding succeeded, convert to string
                 match std::str::from_utf8(&buf) {
-                    Ok(encoded_name) => write!(f, "{}", encoded_name)?,
+                    Ok(encoded_name) => write!(f, "{encoded_name}")?,
                     Err(e) => {
-                        log::warn!("RFC 2047 encoded name is not valid UTF-8: {:?}, using raw name", e);
-                        write!(f, "{}", name)?;
+                        log::warn!("RFC 2047 encoded name is not valid UTF-8: {e:?}, using raw name");
+                        write!(f, "{name}")?;
                     }
                 }
             }
 
             if let Some(address) = self.email_address {
-                write!(f, " <{}>", address)?;
+                write!(f, " <{address}>")?;
             }
         } else if let Some(address) = self.email_address {
-            write!(f, "{}", address)?;
+            write!(f, "{address}")?;
         }
 
         Ok(())
