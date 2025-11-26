@@ -30,9 +30,9 @@ impl EwsClient {
     /// # Example
     ///
     /// ```no_run
-    /// # use ews_client_core::client::EwsClient;
+    /// # use ews_client_core::client::{EwsClient, Credentials};
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// let client = EwsClient::new("https://outlook.office365.com/EWS/Exchange.asmx".parse()?)?;
+    /// let client = EwsClient::new("https://outlook.office365.com/EWS/Exchange.asmx".parse()?, Credentials::basic("user", "pass"))?;
     /// let mime_content = "From: user@example.com\r\nTo: recipient@example.com\r\nSubject: Test\r\n\r\nBody";
     /// client.send_message(mime_content, "message-id@example.com", false, &[]).await?;
     /// # Ok(())

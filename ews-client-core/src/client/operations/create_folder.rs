@@ -27,9 +27,9 @@ impl EwsClient {
     /// # Example
     ///
     /// ```no_run
-    /// # use ews_client_core::client::EwsClient;
+    /// # use ews_client_core::client::{EwsClient, Credentials};
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// let client = EwsClient::new("https://outlook.office365.com/EWS/Exchange.asmx".parse()?)?;
+    /// let client = EwsClient::new("https://outlook.office365.com/EWS/Exchange.asmx".parse()?, Credentials::basic("user", "pass"))?;
     /// let folder_id = client.create_folder("parent_folder_id", "New Folder").await?;
     /// # Ok(())
     /// # }

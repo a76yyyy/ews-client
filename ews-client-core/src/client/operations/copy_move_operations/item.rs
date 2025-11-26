@@ -101,9 +101,9 @@ impl EwsClient {
     /// # Example
     ///
     /// ```no_run
-    /// # use ews_client_core::client::EwsClient;
+    /// # use ews_client_core::client::{EwsClient, Credentials};
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// let client = EwsClient::new("https://outlook.office365.com/EWS/Exchange.asmx".parse()?)?;
+    /// let client = EwsClient::new("https://outlook.office365.com/EWS/Exchange.asmx".parse()?, Credentials::basic("user", "pass"))?;
     /// let new_ids = client.copy_items("dest_folder_id", &["msg_id_1", "msg_id_2"]).await?;
     /// # Ok(())
     /// # }
@@ -135,9 +135,9 @@ impl EwsClient {
     /// # Example
     ///
     /// ```no_run
-    /// # use ews_client_core::client::EwsClient;
+    /// # use ews_client_core::client::{EwsClient, Credentials};
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// let client = EwsClient::new("https://outlook.office365.com/EWS/Exchange.asmx".parse()?)?;
+    /// let client = EwsClient::new("https://outlook.office365.com/EWS/Exchange.asmx".parse()?, Credentials::basic("user", "pass"))?;
     /// let ids = client.move_items("dest_folder_id", &["msg_id_1", "msg_id_2"]).await?;
     /// # Ok(())
     /// # }
