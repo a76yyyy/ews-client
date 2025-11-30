@@ -4,7 +4,7 @@ pub mod folder;
 
 pub mod item;
 
-use ews::{Operation, OperationResponse};
+use ews::{BaseFolderId, Operation, OperationResponse};
 
 use crate::client::{EwsClient, EwsError, OperationRequestOptions, process_response_message_class};
 
@@ -55,4 +55,59 @@ impl EwsClient {
 pub trait CopyMoveOperationBuilder: CopyMoveOperation {
     /// Builds the operation from the given parameters.
     fn operation_builder(client: &EwsClient, destination_id: String, ids: &[&str]) -> Self;
+}
+
+pub(crate) fn create_base_folder_id(id: String) -> BaseFolderId {
+    if is_distinguished_folder_id(&id) {
+        BaseFolderId::DistinguishedFolderId { id, change_key: None }
+    } else {
+        BaseFolderId::FolderId { id, change_key: None }
+    }
+}
+
+fn is_distinguished_folder_id(id: &str) -> bool {
+    matches!(
+        id,
+        "calendar"
+            | "contacts"
+            | "deleteditems"
+            | "drafts"
+            | "inbox"
+            | "journal"
+            | "notes"
+            | "outbox"
+            | "sentitems"
+            | "tasks"
+            | "msgfolderroot"
+            | "root"
+            | "junkemail"
+            | "searchfolders"
+            | "voicemail"
+            | "recoverableitemsroot"
+            | "recoverableitemsdeletions"
+            | "recoverableitemsversions"
+            | "recoverableitemspurges"
+            | "archiveroot"
+            | "archivemsgfolderroot"
+            | "archivedeleteditems"
+            | "archiveinbox"
+            | "archiverecoverableitemsroot"
+            | "archiverecoverableitemsdeletions"
+            | "archiverecoverableitemsversions"
+            | "archiverecoverableitemspurges"
+            | "syncissues"
+            | "conflicts"
+            | "localfailures"
+            | "serverfailures"
+            | "recipientcache"
+            | "quickcontacts"
+            | "conversationhistory"
+            | "adminauditlogs"
+            | "todosearch"
+            | "mycontacts"
+            | "directory"
+            | "imcontactlist"
+            | "peopleconnect"
+            | "favorites"
+    )
 }

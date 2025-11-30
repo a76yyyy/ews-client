@@ -2,11 +2,10 @@
 
 use crate::client::{EwsClient, EwsError};
 use ews::{
-    BaseFolderId, BaseItemId, CopyMoveItemData, ItemResponseMessage, OperationResponse, copy_item::CopyItem,
-    move_item::MoveItem,
+    BaseItemId, CopyMoveItemData, ItemResponseMessage, OperationResponse, copy_item::CopyItem, move_item::MoveItem,
 };
 
-use super::{CopyMoveOperation, CopyMoveOperationBuilder};
+use super::{CopyMoveOperation, CopyMoveOperationBuilder, create_base_folder_id};
 
 impl CopyMoveOperation for MoveItem {
     fn response_to_ids(response: Vec<<Self::Response as OperationResponse>::Message>) -> Vec<String> {
@@ -32,10 +31,7 @@ impl CopyMoveOperationBuilder for MoveItem {
 
         MoveItem {
             inner: CopyMoveItemData {
-                to_folder_id: BaseFolderId::FolderId {
-                    id: destination_id,
-                    change_key: None,
-                },
+                to_folder_id: create_base_folder_id(destination_id),
                 item_ids: ids
                     .iter()
                     .map(|id| BaseItemId::ItemId {
@@ -61,10 +57,7 @@ impl CopyMoveOperationBuilder for CopyItem {
 
         CopyItem {
             inner: CopyMoveItemData {
-                to_folder_id: BaseFolderId::FolderId {
-                    id: destination_id,
-                    change_key: None,
-                },
+                to_folder_id: create_base_folder_id(destination_id),
                 item_ids: ids
                     .iter()
                     .map(|id| BaseItemId::ItemId {

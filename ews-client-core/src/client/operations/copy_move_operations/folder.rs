@@ -6,7 +6,7 @@ use ews::{
     move_folder::MoveFolder,
 };
 
-use super::{CopyMoveOperation, CopyMoveOperationBuilder};
+use super::{CopyMoveOperation, CopyMoveOperationBuilder, create_base_folder_id};
 
 impl CopyMoveOperation for MoveFolder {
     fn response_to_ids(response: Vec<<Self::Response as OperationResponse>::Message>) -> Vec<String> {
@@ -24,10 +24,7 @@ impl CopyMoveOperationBuilder for MoveFolder {
     fn operation_builder(_client: &EwsClient, destination_id: String, ids: &[&str]) -> Self {
         MoveFolder {
             inner: CopyMoveFolderData {
-                to_folder_id: BaseFolderId::FolderId {
-                    id: destination_id,
-                    change_key: None,
-                },
+                to_folder_id: create_base_folder_id(destination_id),
                 folder_ids: ids
                     .iter()
                     .map(|id| BaseFolderId::FolderId {
@@ -44,10 +41,7 @@ impl CopyMoveOperationBuilder for CopyFolder {
     fn operation_builder(_client: &EwsClient, destination_id: String, ids: &[&str]) -> Self {
         CopyFolder {
             inner: CopyMoveFolderData {
-                to_folder_id: BaseFolderId::FolderId {
-                    id: destination_id,
-                    change_key: None,
-                },
+                to_folder_id: create_base_folder_id(destination_id),
                 folder_ids: ids
                     .iter()
                     .map(|id| BaseFolderId::FolderId {
