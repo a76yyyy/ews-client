@@ -18,6 +18,7 @@ mod delete_folder;
 mod get_message;
 mod sync_folder_hierarchy;
 mod update_folder;
+mod update_item;
 
 mod change_read_status;
 mod create_message;
