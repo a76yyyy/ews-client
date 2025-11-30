@@ -34,11 +34,31 @@ ews-client/
 
 **Rust Core Library** (`ews-client-core`):
 
+**Folder Operations:**
+
+- ✅ Create, Delete, Update Folders
+- ✅ Get Folder, Find Folder
+- ✅ Sync Folder Hierarchy
+- ✅ Copy & Move Folders
+
+**Item Operations:**
+
+- ✅ Create, Delete, Update Items
+- ✅ Get Item, Find Item
+- ✅ Sync Folder Items
+- ✅ Copy & Move Items
+- ✅ Send Message
+- ✅ Mark as Junk, Mark as Read
+
+**Message Headers:**
+
+- ✅ MIME parsing support
+- ✅ Unified `MessageHeaders` trait
+- ✅ RFC 2047 encoding support
+
+**Infrastructure:**
+
 - ✅ Connection testing and authentication
-- ✅ Folder operations (sync, create, update, delete, move, copy)
-- ✅ Message operations (sync, get, create, send, delete, move, copy)
-- ✅ Read status management
-- ✅ Junk mail marking
 - ✅ Server version detection
 - ✅ Automatic throttling handling
 - ✅ Batch operation optimization
