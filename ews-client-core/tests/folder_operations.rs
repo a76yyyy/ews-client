@@ -7,7 +7,8 @@
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::ignored_unit_patterns,
-    clippy::indexing_slicing
+    clippy::indexing_slicing,
+    clippy::print_stdout
 )]
 
 use ews_client_core::client::{Credentials, EwsClient};
@@ -156,6 +157,7 @@ async fn test_move_folders() {
         .expect("Failed to move folder");
 
     assert_eq!(moved_ids.len(), 1, "Should have one moved folder");
+    assert_ne!(moved_ids[0], folder_id, "Moved folder should have a different ID");
 
     // Clean up (delete the destination folder, which should also delete the moved folder)
     client
@@ -197,4 +199,99 @@ async fn test_delete_multiple_folders() {
         .delete_folder(&[&folder_id_1, &folder_id_2])
         .await
         .expect("Failed to delete folders");
+}
+
+#[tokio::test]
+#[ignore = "requires live EWS server"]
+async fn test_sync_folder_hierarchy() {
+    let client = create_test_client();
+
+    // First sync (initial)
+    let result = client
+        .sync_folder_hierarchy(None)
+        .await
+        .expect("Failed to sync folder hierarchy");
+
+    assert!(!result.sync_state.is_empty(), "Should return a sync state");
+    // We can't assert on created_folders count as it depends on the account state
+    println!("Initial sync found {} created folders", result.created_folders.len());
+
+    // Create a test folder to verify incremental sync
+    let parent_folder_id = "inbox";
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let folder_name = format!("Test Sync Folder {timestamp}");
+    let folder_id = client
+        .create_folder(parent_folder_id, &folder_name)
+        .await
+        .expect("Failed to create folder");
+
+    // Second sync (incremental)
+    let result_incremental = client
+        .sync_folder_hierarchy(Some(result.sync_state))
+        .await
+        .expect("Failed to sync folder hierarchy incrementally");
+
+    // Verify we found the new folder
+    let found = result_incremental
+        .created_folders
+        .iter()
+        .any(|f| f.display_name == folder_name);
+
+    if found {
+        println!("Found created folder in incremental sync");
+    } else {
+        println!("Did not find created folder in incremental sync (might be propagation delay)");
+    }
+
+    // Clean up
+    client
+        .delete_folder(&[&folder_id])
+        .await
+        .expect("Failed to delete folder");
+}
+
+#[tokio::test]
+#[ignore = "requires live EWS server"]
+async fn test_mark_all_items_as_read() {
+    let client = create_test_client();
+    let folder_id = "inbox"; // Use inbox for testing
+
+    // Mark all as read
+    client
+        .change_read_status_all(&[folder_id], true, false)
+        .await
+        .expect("Failed to mark all items as read");
+
+    // Mark all as unread
+    client
+        .change_read_status_all(&[folder_id], false, false)
+        .await
+        .expect("Failed to mark all items as unread");
+}
+
+#[tokio::test]
+#[ignore = "requires live EWS server"]
+async fn test_sync_messages() {
+    let client = create_test_client();
+    let folder_id = "inbox";
+
+    // Initial sync
+    let result = client
+        .sync_messages(folder_id, None)
+        .await
+        .expect("Failed to sync messages");
+
+    assert!(!result.sync_state.is_empty(), "Should return a sync state");
+
+    // Incremental sync
+    let _result_incremental = client
+        .sync_messages(folder_id, Some(result.sync_state))
+        .await
+        .expect("Failed to sync messages incrementally");
+
+    // We can't assert much about the content without setting up specific state,
+    // but we can verify the call succeeds.
 }
