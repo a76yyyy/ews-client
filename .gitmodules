@@ -1,3 +1,6 @@
 [submodule "reference/thunderbird-desktop"]
 	path = reference/thunderbird-desktop
 	url = https://github.com/thunderbird/thunderbird-desktop
+[submodule "docs/reference/office_developer_exchange"]
+	path = docs/reference/office_developer_exchange
+	url = https://github.com/MicrosoftDocs/office-developer-exchange-docs.git
