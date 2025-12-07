@@ -4,3 +4,6 @@
 [submodule "docs/reference/office_developer_exchange"]
 	path = docs/reference/office_developer_exchange
 	url = https://github.com/MicrosoftDocs/office-developer-exchange-docs.git
+[submodule "reference/ews-rs"]
+	path = reference/ews-rs
+	url = https://github.com/thunderbird/ews-rs.git
