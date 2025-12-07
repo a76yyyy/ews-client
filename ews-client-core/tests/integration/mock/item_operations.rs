@@ -40,7 +40,7 @@ async fn test_change_read_status_client() {
 
     // Register response for UpdateItem with SetItemField
     let response = fixtures::update_item_set_field_response(item_id);
-    mock.register_response(response).await;
+    mock.register_operation("UpdateItem", response).await;
 
     let client = EwsClient::new(mock.ews_endpoint().parse().unwrap(), Credentials::basic("user", "pass")).unwrap();
 
@@ -58,28 +58,20 @@ async fn test_create_item_with_mock() {
     let item_id = "item-test-create-123";
 
     // Register the mock response
-    mock.mock_create_item(item_id).await;
+    let response_fixture = fixtures::create_item_response(item_id);
+    mock.register_operation("CreateItem", response_fixture).await;
 
-    // Send a real HTTP request
-    let client = reqwest::Client::new();
-    let request_body = create_soap_request("CreateItem", "<t:Message/>");
+    let client = EwsClient::new(mock.ews_endpoint().parse().unwrap(), Credentials::basic("user", "pass")).unwrap();
 
-    let response = client
-        .post(mock.ews_endpoint())
-        .header("Content-Type", "text/xml; charset=utf-8")
-        .body(request_body)
-        .send()
-        .await
-        .expect("Failed to send request");
+    // Use EwsClient to create message
+    // Note: create_message sends a CreateItem request with MessageDisposition="SaveOnly" (if is_draft=true)
+    let content = b"From: user@example.com\r\nSubject: Test\r\n\r\nBody";
+    let result = client.create_message("inbox", content, true, false).await;
 
     // Verify response
-    assert_eq!(response.status(), 200);
-    let body = response.text().await.expect("Failed to read response body");
-
-    // Verify the response contains expected data
-    assert_valid_soap_envelope(&body);
-    assert_response_success(&body);
-    assert_contains_item_id(&body, item_id);
+    assert!(result.is_ok(), "create_message failed: {:?}", result.err());
+    let created_result = result.unwrap();
+    assert_eq!(created_result.item_id, item_id);
 }
 
 /// Test getting an item with mock server
@@ -121,27 +113,16 @@ async fn test_delete_item_with_mock() {
     let mock = MockEwsServer::new().await;
 
     // Register the mock response
-    mock.mock_delete_item().await;
+    let response_fixture = fixtures::delete_item_response();
+    mock.register_operation("DeleteItem", response_fixture).await;
 
-    // Send a real HTTP request
-    let client = reqwest::Client::new();
-    let request_body = create_soap_request("DeleteItem", "<t:ItemId Id=\"item-to-delete\"/>");
+    let client = EwsClient::new(mock.ews_endpoint().parse().unwrap(), Credentials::basic("user", "pass")).unwrap();
 
-    let response = client
-        .post(mock.ews_endpoint())
-        .header("Content-Type", "text/xml; charset=utf-8")
-        .body(request_body)
-        .send()
-        .await
-        .expect("Failed to send request");
+    // Use EwsClient to delete item
+    let result = client.delete_messages(&["item-to-delete"]).await;
 
     // Verify response
-    assert_eq!(response.status(), 200);
-    let body = response.text().await.expect("Failed to read response body");
-
-    // Verify the response contains expected data
-    assert_valid_soap_envelope(&body);
-    assert_response_success(&body);
+    assert!(result.is_ok(), "delete_messages failed: {:?}", result.err());
 }
 
 /// Test updating an item with mock server
@@ -243,28 +224,18 @@ async fn test_copy_item_with_mock() {
 
     // Register the mock response
     let response_fixture = fixtures::copy_item_response(item_id);
-    mock.register_response(response_fixture).await;
+    mock.register_operation("CopyItem", response_fixture).await;
 
-    // Send a real HTTP request
-    let client = reqwest::Client::new();
-    let request_body = create_soap_request("CopyItem", "<t:ItemId Id=\"source-item\"/>");
+    let client = EwsClient::new(mock.ews_endpoint().parse().unwrap(), Credentials::basic("user", "pass")).unwrap();
 
-    let response = client
-        .post(mock.ews_endpoint())
-        .header("Content-Type", "text/xml; charset=utf-8")
-        .body(request_body)
-        .send()
-        .await
-        .expect("Failed to send request");
+    // Use EwsClient to copy item
+    let result = client.copy_items("dest-folder", &["source-item"]).await;
 
     // Verify response
-    assert_eq!(response.status(), 200);
-    let body = response.text().await.expect("Failed to read response body");
-
-    // Verify the response contains expected data
-    assert_valid_soap_envelope(&body);
-    assert_response_success(&body);
-    assert_contains_item_id(&body, item_id);
+    assert!(result.is_ok(), "copy_items failed: {:?}", result.err());
+    let copied_ids = result.unwrap();
+    assert_eq!(copied_ids.len(), 1);
+    assert_eq!(copied_ids[0], item_id);
 }
 
 /// Test moving an item with mock server
@@ -275,28 +246,18 @@ async fn test_move_item_with_mock() {
 
     // Register the mock response
     let response_fixture = fixtures::move_item_response(item_id);
-    mock.register_response(response_fixture).await;
+    mock.register_operation("MoveItem", response_fixture).await;
 
-    // Send a real HTTP request
-    let client = reqwest::Client::new();
-    let request_body = create_soap_request("MoveItem", "<t:ItemId Id=\"source-item\"/>");
+    let client = EwsClient::new(mock.ews_endpoint().parse().unwrap(), Credentials::basic("user", "pass")).unwrap();
 
-    let response = client
-        .post(mock.ews_endpoint())
-        .header("Content-Type", "text/xml; charset=utf-8")
-        .body(request_body)
-        .send()
-        .await
-        .expect("Failed to send request");
+    // Use EwsClient to move item
+    let result = client.move_items("dest-folder", &["source-item"]).await;
 
     // Verify response
-    assert_eq!(response.status(), 200);
-    let body = response.text().await.expect("Failed to read response body");
-
-    // Verify the response contains expected data
-    assert_valid_soap_envelope(&body);
-    assert_response_success(&body);
-    assert_contains_item_id(&body, item_id);
+    assert!(result.is_ok(), "move_items failed: {:?}", result.err());
+    let moved_ids = result.unwrap();
+    assert_eq!(moved_ids.len(), 1);
+    assert_eq!(moved_ids[0], format!("moved-{item_id}"));
 }
 
 /// Test syncing folder items with mock server
@@ -307,29 +268,21 @@ async fn test_sync_folder_items_with_mock() {
     let item_id = "item-test-sync-404";
 
     // Register the mock response
-    mock.mock_sync_folder_items(sync_state, item_id).await;
+    let response_fixture = fixtures::sync_folder_items_response(sync_state, item_id);
+    mock.register_operation("SyncFolderItems", response_fixture).await;
 
-    // Send a real HTTP request
-    let client = reqwest::Client::new();
-    let request_body = create_soap_request("SyncFolderItems", "<t:SyncFolderId Id=\"inbox\"/>");
+    let client = EwsClient::new(mock.ews_endpoint().parse().unwrap(), Credentials::basic("user", "pass")).unwrap();
 
-    let response = client
-        .post(mock.ews_endpoint())
-        .header("Content-Type", "text/xml; charset=utf-8")
-        .body(request_body)
-        .send()
-        .await
-        .expect("Failed to send request");
+    // Use EwsClient to sync folder items
+    let result = client.sync_messages("inbox", None).await;
 
     // Verify response
-    assert_eq!(response.status(), 200);
-    let body = response.text().await.expect("Failed to read response body");
+    assert!(result.is_ok(), "sync_messages failed: {:?}", result.err());
+    let sync_result = result.unwrap();
+    assert_eq!(sync_result.sync_state, sync_state);
 
-    // Verify the response contains expected data
-    assert_valid_soap_envelope(&body);
-    assert_response_success(&body);
-    assert_contains_sync_state(&body, sync_state);
-    assert_contains_item_id(&body, item_id);
+    // Verify we got some changes
+    assert!(!sync_result.created.is_empty() || !sync_result.updated.is_empty() || !sync_result.deleted.is_empty());
 }
 
 /// Test marking item as junk with mock server
@@ -339,29 +292,20 @@ async fn test_mark_as_junk_with_mock() {
     let item_id = "item-test-junk-505";
 
     // Register the mock response
-    let response_fixture = fixtures::mark_as_junk_response(Some(item_id));
-    mock.register_response(response_fixture).await;
+    // Note: EwsClient defaults to Exchange2010, so it falls back to MoveItem
+    let response_fixture = fixtures::move_item_response(item_id);
+    mock.register_operation("MoveItem", response_fixture).await;
 
-    // Send a real HTTP request
-    let client = reqwest::Client::new();
-    let request_body = create_soap_request("MarkAsJunk", "<t:ItemId Id=\"junk-item\"/>");
+    let client = EwsClient::new(mock.ews_endpoint().parse().unwrap(), Credentials::basic("user", "pass")).unwrap();
 
-    let response = client
-        .post(mock.ews_endpoint())
-        .header("Content-Type", "text/xml; charset=utf-8")
-        .body(request_body)
-        .send()
-        .await
-        .expect("Failed to send request");
+    // Use EwsClient to mark as junk
+    let result = client.mark_as_junk(&["junk-item"], true, "junk-folder-id").await;
 
     // Verify response
-    assert_eq!(response.status(), 200);
-    let body = response.text().await.expect("Failed to read response body");
-
-    // Verify the response contains expected data
-    assert_valid_soap_envelope(&body);
-    assert_response_success(&body);
-    assert_contains_item_id(&body, item_id);
+    assert!(result.is_ok(), "mark_as_junk failed: {:?}", result.err());
+    let marked_ids = result.unwrap();
+    assert_eq!(marked_ids.len(), 1);
+    assert_eq!(marked_ids[0], format!("moved-{item_id}"));
 }
 
 /// Test marking all items as read with mock server
@@ -371,7 +315,7 @@ async fn test_mark_all_items_as_read_with_mock() {
 
     // Register the mock response
     let response_fixture = fixtures::mark_all_items_as_read_response();
-    mock.register_response(response_fixture).await;
+    mock.register_operation("MarkAllItemsAsRead", response_fixture).await;
 
     // Send a real HTTP request
     let client = reqwest::Client::new();
@@ -403,7 +347,7 @@ async fn test_batch_get_items_with_mock() {
 
     // Register the mock response
     let response_fixture = fixtures::batch_get_item_response(&item_ids, &subjects);
-    mock.register_response(response_fixture).await;
+    mock.register_operation("GetItem", response_fixture).await;
 
     // Send a real HTTP request
     let client = reqwest::Client::new();
@@ -437,27 +381,15 @@ async fn test_batch_delete_items_with_mock() {
 
     // Register the mock response
     let response_fixture = fixtures::batch_delete_item_response(2);
-    mock.register_response(response_fixture).await;
+    mock.register_operation("DeleteItem", response_fixture).await;
 
-    // Send a real HTTP request
-    let client = reqwest::Client::new();
-    let request_body = create_soap_request("DeleteItem", "<t:ItemId Id=\"item-1\"/><t:ItemId Id=\"item-2\"/>");
+    let client = EwsClient::new(mock.ews_endpoint().parse().unwrap(), Credentials::basic("user", "pass")).unwrap();
 
-    let response = client
-        .post(mock.ews_endpoint())
-        .header("Content-Type", "text/xml; charset=utf-8")
-        .body(request_body)
-        .send()
-        .await
-        .expect("Failed to send request");
+    // Use EwsClient to delete items
+    let result = client.delete_messages(&["item-1", "item-2"]).await;
 
     // Verify response
-    assert_eq!(response.status(), 200);
-    let body = response.text().await.expect("Failed to read response body");
-
-    // Verify the response contains expected data
-    assert_valid_soap_envelope(&body);
-    assert_batch_response_success(&body, 2);
+    assert!(result.is_ok(), "delete_messages failed: {:?}", result.err());
 }
 
 /// Test batch update items with mock server
@@ -468,7 +400,7 @@ async fn test_batch_update_items_with_mock() {
 
     // Register the mock response
     let response_fixture = fixtures::batch_update_item_response(&item_ids);
-    mock.register_response(response_fixture).await;
+    mock.register_operation("UpdateItem", response_fixture).await;
 
     // Send a real HTTP request
     let client = reqwest::Client::new();
@@ -500,30 +432,21 @@ async fn test_batch_mark_as_junk_with_mock() {
     let item_ids = vec!["item-j1", "item-j2"];
 
     // Register the mock response
-    let response_fixture = fixtures::batch_mark_as_junk_response(&item_ids);
-    mock.register_response(response_fixture).await;
+    // Note: EwsClient defaults to Exchange2010, so it falls back to MoveItem
+    let response_fixture = fixtures::batch_move_item_response(&item_ids);
+    mock.register_operation("MoveItem", response_fixture).await;
 
-    // Send a real HTTP request
-    let client = reqwest::Client::new();
-    let request_body = create_soap_request("MarkAsJunk", "<t:ItemId Id=\"item-j1\"/><t:ItemId Id=\"item-j2\"/>");
+    let client = EwsClient::new(mock.ews_endpoint().parse().unwrap(), Credentials::basic("user", "pass")).unwrap();
 
-    let response = client
-        .post(mock.ews_endpoint())
-        .header("Content-Type", "text/xml; charset=utf-8")
-        .body(request_body)
-        .send()
-        .await
-        .expect("Failed to send request");
+    // Use EwsClient to mark as junk
+    let result = client.mark_as_junk(&["item-j1", "item-j2"], true, "junk-folder").await;
 
     // Verify response
-    assert_eq!(response.status(), 200);
-    let body = response.text().await.expect("Failed to read response body");
-
-    // Verify the response contains expected data
-    assert_valid_soap_envelope(&body);
-    assert_batch_response_success(&body, 2);
-    assert_contains_item_id(&body, item_ids[0]);
-    assert_contains_item_id(&body, item_ids[1]);
+    assert!(result.is_ok(), "mark_as_junk failed: {:?}", result.err());
+    let marked_ids = result.unwrap();
+    assert_eq!(marked_ids.len(), 2);
+    assert_eq!(marked_ids[0], format!("moved-{}", item_ids[0]));
+    assert_eq!(marked_ids[1], format!("moved-{}", item_ids[1]));
 }
 
 /// Test batch copy items with mock server
@@ -534,29 +457,20 @@ async fn test_batch_copy_items_with_mock() {
 
     // Register the mock response
     let response_fixture = fixtures::batch_copy_item_response(&item_ids);
-    mock.register_response(response_fixture).await;
+    mock.register_operation("CopyItem", response_fixture).await;
 
-    // Send a real HTTP request
-    let client = reqwest::Client::new();
-    let request_body = create_soap_request("CopyItem", "<t:ItemId Id=\"item-c1\"/><t:ItemId Id=\"item-c2\"/>");
+    let client = EwsClient::new(mock.ews_endpoint().parse().unwrap(), Credentials::basic("user", "pass")).unwrap();
 
-    let response = client
-        .post(mock.ews_endpoint())
-        .header("Content-Type", "text/xml; charset=utf-8")
-        .body(request_body)
-        .send()
-        .await
-        .expect("Failed to send request");
+    // Use EwsClient to copy items
+    let result = client.copy_items("dest-folder", &["item-c1", "item-c2"]).await;
 
     // Verify response
-    assert_eq!(response.status(), 200);
-    let body = response.text().await.expect("Failed to read response body");
-
-    // Verify the response contains expected data
-    assert_valid_soap_envelope(&body);
-    assert_batch_response_success(&body, 2);
-    assert_contains_item_id(&body, item_ids[0]);
-    assert_contains_item_id(&body, item_ids[1]);
+    assert!(result.is_ok(), "copy_items failed: {:?}", result.err());
+    let copied_ids = result.unwrap();
+    assert_eq!(copied_ids.len(), 2);
+    // CopyItem returns new IDs with "copied-" prefix
+    assert_eq!(copied_ids[0], format!("copied-{}", item_ids[0]));
+    assert_eq!(copied_ids[1], format!("copied-{}", item_ids[1]));
 }
 
 /// Test batch move items with mock server
@@ -567,29 +481,20 @@ async fn test_batch_move_items_with_mock() {
 
     // Register the mock response
     let response_fixture = fixtures::batch_move_item_response(&item_ids);
-    mock.register_response(response_fixture).await;
+    mock.register_operation("MoveItem", response_fixture).await;
 
-    // Send a real HTTP request
-    let client = reqwest::Client::new();
-    let request_body = create_soap_request("MoveItem", "<t:ItemId Id=\"item-m1\"/><t:ItemId Id=\"item-m2\"/>");
+    let client = EwsClient::new(mock.ews_endpoint().parse().unwrap(), Credentials::basic("user", "pass")).unwrap();
 
-    let response = client
-        .post(mock.ews_endpoint())
-        .header("Content-Type", "text/xml; charset=utf-8")
-        .body(request_body)
-        .send()
-        .await
-        .expect("Failed to send request");
+    // Use EwsClient to move items
+    let result = client.move_items("dest-folder", &["item-m1", "item-m2"]).await;
 
     // Verify response
-    assert_eq!(response.status(), 200);
-    let body = response.text().await.expect("Failed to read response body");
-
-    // Verify the response contains expected data
-    assert_valid_soap_envelope(&body);
-    assert_batch_response_success(&body, 2);
-    assert_contains_item_id(&body, item_ids[0]);
-    assert_contains_item_id(&body, item_ids[1]);
+    assert!(result.is_ok(), "move_items failed: {:?}", result.err());
+    let moved_ids = result.unwrap();
+    assert_eq!(moved_ids.len(), 2);
+    // MoveItem returns new IDs with "moved-" prefix
+    assert_eq!(moved_ids[0], format!("moved-{}", item_ids[0]));
+    assert_eq!(moved_ids[1], format!("moved-{}", item_ids[1]));
 }
 
 /// Test item not found error with mock server
@@ -599,7 +504,7 @@ async fn test_item_not_found_error_with_mock() {
 
     // Register an error response
     let response_fixture = fixtures::error_item_not_found();
-    mock.register_response(response_fixture).await;
+    mock.register_operation("GetItem", response_fixture).await;
 
     // Send a real HTTP request
     let client = reqwest::Client::new();
@@ -629,7 +534,7 @@ async fn test_invalid_change_key_error_with_mock() {
 
     // Register an error response
     let response_fixture = fixtures::error_invalid_change_key();
-    mock.register_response(response_fixture).await;
+    mock.register_operation("UpdateItem", response_fixture).await;
 
     // Send a real HTTP request
     let client = reqwest::Client::new();
@@ -662,7 +567,7 @@ async fn test_find_item_paginated_with_mock() {
 
     // Register the mock response
     let response_fixture = fixtures::find_item_paginated_response(&item_ids, total_count, includes_last_item_in_range);
-    mock.register_response(response_fixture).await;
+    mock.register_operation("FindItem", response_fixture).await;
 
     // Send a real HTTP request
     let client = reqwest::Client::new();
@@ -705,33 +610,22 @@ async fn test_sync_folder_items_with_changes_mock() {
     // Register the mock response
     let response_fixture =
         fixtures::sync_folder_items_with_changes_response(sync_state, create_id, update_id, delete_id);
-    mock.register_response(response_fixture).await;
+    mock.register_operation("SyncFolderItems", response_fixture).await;
 
-    // Send a real HTTP request
-    let client = reqwest::Client::new();
-    let request_body = create_soap_request("SyncFolderItems", "<m:SyncState>old-state</m:SyncState>");
+    let client = EwsClient::new(mock.ews_endpoint().parse().unwrap(), Credentials::basic("user", "pass")).unwrap();
 
-    let response = client
-        .post(mock.ews_endpoint())
-        .header("Content-Type", "text/xml; charset=utf-8")
-        .body(request_body)
-        .send()
-        .await
-        .expect("Failed to send request");
+    // Use EwsClient to sync folder items
+    let result = client.sync_messages("inbox", Some("old-state".to_string())).await;
 
     // Verify response
-    assert_eq!(response.status(), 200);
-    let body = response.text().await.expect("Failed to read response body");
-
-    // Verify the response contains expected data
-    assert_valid_soap_envelope(&body);
-    assert_response_success(&body);
-    assert_contains_sync_state(&body, sync_state);
+    assert!(result.is_ok(), "sync_messages failed: {:?}", result.err());
+    let sync_result = result.unwrap();
+    assert_eq!(sync_result.sync_state, sync_state);
 
     // Verify all change types are present
-    assert_contains_item_id(&body, create_id);
-    assert_contains_item_id(&body, update_id);
-    assert!(body.contains(delete_id)); // Deleted items might not have full ItemId structure
+    assert!(!sync_result.created.is_empty());
+    assert!(!sync_result.updated.is_empty());
+    assert!(!sync_result.deleted.is_empty());
 }
 
 /// Test get item with MIME content
@@ -744,30 +638,25 @@ async fn test_get_item_with_mime_with_mock() {
 
     // Register the mock response
     let response_fixture = fixtures::get_item_with_mime_response(item_id, subject, mime_content);
-    mock.register_response(response_fixture).await;
+    mock.register_operation("GetItem", response_fixture).await;
 
-    // Send a real HTTP request
-    let client = reqwest::Client::new();
-    let request_body = create_soap_request("GetItem", &format!("<t:ItemId Id=\"{item_id}\"/>"));
+    let client = EwsClient::new(mock.ews_endpoint().parse().unwrap(), Credentials::basic("user", "pass")).unwrap();
 
-    let response = client
-        .post(mock.ews_endpoint())
-        .header("Content-Type", "text/xml; charset=utf-8")
-        .body(request_body)
-        .send()
-        .await
-        .expect("Failed to send request");
+    // Use EwsClient to get message
+    let result = client.get_message(item_id).await;
 
     // Verify response
-    assert_eq!(response.status(), 200);
-    let body = response.text().await.expect("Failed to read response body");
+    assert!(result.is_ok(), "get_message failed: {:?}", result.err());
+    let content = result.unwrap();
 
-    // Verify the response contains expected data
-    assert_valid_soap_envelope(&body);
-    assert_response_success(&body);
-    assert_contains_item_id(&body, item_id);
-    assert_contains_subject(&body, subject);
-    assert!(body.contains("MimeContent")); // Verify MIME content is present
+    // Verify MIME content is present and correct
+    // Note: get_message returns decoded bytes, but our mock returns raw string as MIME content
+    // In a real scenario, MIME content is base64 encoded in the XML.
+    // The fixture `get_item_with_mime_response` likely puts the string directly or base64 encodes it.
+    // Let's check if the content matches.
+    let content_str = String::from_utf8_lossy(&content);
+    assert!(content_str.contains("From: test@example.com"));
+    assert!(content_str.contains("Body"));
 }
 
 /// Test batch delete items with mixed results
@@ -777,28 +666,13 @@ async fn test_batch_delete_items_mixed_with_mock() {
 
     // Register the mock response with 2 successes and 1 error
     let response_fixture = fixtures::batch_delete_item_mixed_response(2, 1);
-    mock.register_response(response_fixture).await;
+    mock.register_operation("DeleteItem", response_fixture).await;
 
-    // Send a real HTTP request
-    let client = reqwest::Client::new();
-    let request_body = create_soap_request(
-        "DeleteItem",
-        "<t:ItemId Id=\"item-1\"/><t:ItemId Id=\"item-2\"/><t:ItemId Id=\"item-3\"/>",
-    );
+    let client = EwsClient::new(mock.ews_endpoint().parse().unwrap(), Credentials::basic("user", "pass")).unwrap();
 
-    let response = client
-        .post(mock.ews_endpoint())
-        .header("Content-Type", "text/xml; charset=utf-8")
-        .body(request_body)
-        .send()
-        .await
-        .expect("Failed to send request");
+    // Use EwsClient to delete items
+    let result = client.delete_messages(&["item-1", "item-2", "item-3"]).await;
 
     // Verify response
-    assert_eq!(response.status(), 200);
-    let body = response.text().await.expect("Failed to read response body");
-
-    // Verify the response contains expected data
-    assert_valid_soap_envelope(&body);
-    assert_batch_response_mixed(&body, 2, 1);
+    assert!(result.is_ok(), "delete_messages failed: {:?}", result.err());
 }

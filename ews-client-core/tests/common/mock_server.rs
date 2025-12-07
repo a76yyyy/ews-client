@@ -5,7 +5,7 @@
 //! This allows testing the EWS client without requiring a real Exchange server.
 
 use super::fixtures;
-use wiremock::matchers::{body_string_contains, method, path};
+use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 /// A mock EWS server for testing
@@ -125,15 +125,37 @@ impl MockEwsServer {
     }
 
     /// Helper to register an operation-specific response
-    async fn register_operation(&self, operation: &str, response_body: String) {
+    pub async fn register_operation(&self, operation: &str, response_body: String) {
+        // Create a string pattern that matches the operation in the SOAP request
+        // The operation name can appear in two forms:
+        // 1. With namespace prefix: <m:OperationName>
+        // 2. With default namespace: <OperationName xmlns="...">
+        // We match the opening tag with a space or > to avoid matching response tags
+        // For example, <GetFolder should match but not <GetFolderResponse
+        let operation_with_prefix = format!("<m:{operation}");
+        let operation_with_space = format!("<{operation} ");
+        let operation_with_close = format!("<{operation}>");
+
         Mock::given(method("POST"))
             .and(path(EWS_PATH))
-            .and(body_string_contains(format!("<m:{operation}>")))
+            .and(
+                // Match any of the three patterns
+                move |req: &wiremock::Request| {
+                    let body = String::from_utf8_lossy(&req.body);
+                    body.contains(&operation_with_prefix)
+                        || body.contains(&operation_with_space)
+                        || body.contains(&operation_with_close)
+                },
+            )
             .respond_with(
                 ResponseTemplate::new(200)
                     .set_body_string(response_body)
                     .append_header("Content-Type", "text/xml; charset=utf-8"),
             )
+            // Set priority to 1 (highest) for operation-specific mocks
+            // This ensures they take precedence over generic mocks
+            .with_priority(1)
+            .named(format!("{operation} operation mock"))
             .mount(&self.server)
             .await;
     }
