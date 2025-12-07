@@ -7,3 +7,6 @@
 [submodule "reference/ews-rs"]
 	path = reference/ews-rs
 	url = https://github.com/thunderbird/ews-rs.git
+[submodule "reference/pyo3"]
+	path = reference/pyo3
+	url = https://github.com/PyO3/pyo3.git

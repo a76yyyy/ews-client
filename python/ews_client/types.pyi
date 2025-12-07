@@ -1,9 +1,9 @@
-"""Type definitions for EWS client."""
+"""Type stubs for EWS client data types.
 
-from dataclasses import dataclass
+These types are defined in Rust and exported to Python via PyO3.
+This file provides type hints for IDE support and type checking.
+"""
 
-
-@dataclass
 class FolderInfo:
     """Information about an EWS folder."""
 
@@ -15,8 +15,6 @@ class FolderInfo:
     unread_count: int | None
     child_folder_count: int | None
 
-
-@dataclass
 class FolderHierarchySyncResult:
     """Result of folder hierarchy synchronization."""
 
@@ -26,8 +24,6 @@ class FolderHierarchySyncResult:
     deleted_folder_ids: list[str]
     well_known_folders: dict[str, str] | None
 
-
-@dataclass
 class SyncMessageInfo:
     """Detailed information about a synced message."""
 
@@ -40,8 +36,6 @@ class SyncMessageInfo:
     has_attachments: bool | None
     size: int | None
 
-
-@dataclass
 class SyncMessagesResult:
     """Result of message synchronization."""
 
@@ -52,16 +46,12 @@ class SyncMessagesResult:
     sync_state: str
     includes_last_item: bool
 
-
-@dataclass
 class CreateMessageResult:
     """Result of creating a message."""
 
     item_id: str
 
-
 # Legacy types for backward compatibility (deprecated)
-@dataclass
 class MessageInfo:
     """Information about an EWS message (deprecated, use SyncMessageInfo)."""
 
@@ -70,16 +60,12 @@ class MessageInfo:
     from_: str | None
     is_read: bool
 
-
-@dataclass
 class FolderSyncResult:
     """Result of folder synchronization (deprecated, use FolderHierarchySyncResult)."""
 
     folders: list[FolderInfo]
     sync_state: str
 
-
-@dataclass
 class MessageSyncResult:
     """Result of message synchronization (deprecated, use SyncMessagesResult)."""
 
