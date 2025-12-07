@@ -6,6 +6,102 @@ from .types import (
     SyncMessagesResult,
 )
 
+# Exception classes (defined in Rust via create_exception! macro)
+class BaseEWSError(Exception):
+    """Base exception for all EWS client errors.
+
+    All EWS-specific exceptions inherit from this class, allowing
+    users to catch all EWS errors with a single except clause.
+
+    Example:
+        try:
+            await client.sync_folder_hierarchy()
+        except BaseEWSError as e:
+            print(f"EWS error: {e}")
+    """
+
+    pass
+
+class EWSAuthenticationError(BaseEWSError):
+    """Authentication failure (401, invalid credentials, etc.).
+
+    Raised when:
+    - Invalid username or password
+    - Credentials have expired
+    - Server returns 401 Unauthorized
+    """
+
+    pass
+
+class EWSHTTPError(BaseEWSError):
+    """HTTP transport error (network, connection, etc.).
+
+    Raised when:
+    - Network connection fails
+    - DNS resolution fails
+    - SSL/TLS certificate validation fails
+    - HTTP request timeout
+    """
+
+    pass
+
+class EWSProtocolError(BaseEWSError):
+    """EWS protocol error (SOAP parsing, XML issues, etc.).
+
+    Raised when:
+    - SOAP envelope parsing fails
+    - XML deserialization fails
+    - Invalid EWS protocol response
+    """
+
+    pass
+
+class EWSResponseError(BaseEWSError):
+    """EWS response contained an error code.
+
+    Raised when:
+    - Exchange server returns an error response
+    - Item not found
+    - Folder not found
+    - Invalid operation for the current state
+    """
+
+    pass
+
+class EWSProcessingError(BaseEWSError):
+    """Error processing response data (validation, unexpected format, etc.).
+
+    Raised when:
+    - Response data validation fails
+    - Unexpected response structure
+    - Missing required fields in response
+    - Data transformation fails
+    """
+
+    pass
+
+class EWSMissingIdError(BaseEWSError):
+    """Missing required ID in response from Exchange.
+
+    Raised when:
+    - Exchange server response doesn't include expected ID
+    - Folder ID missing from response
+    - Item ID missing from response
+    """
+
+    pass
+
+class EWSSerializationError(BaseEWSError):
+    """JSON serialization/deserialization error.
+
+    Raised when:
+    - JSON encoding fails
+    - JSON decoding fails
+    - Invalid JSON format
+    """
+
+    pass
+
 class EwsClient:
     """EWS client for Exchange Web Services."""
 
