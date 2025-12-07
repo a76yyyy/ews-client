@@ -5,12 +5,7 @@
 
 #![allow(clippy::expect_used)]
 
-#[path = "common/mod.rs"]
-mod common;
-
-use common::MockEwsServer;
-use common::fixtures;
-use common::test_utils::*;
+use crate::common::{MockEwsServer, fixtures, test_utils::*};
 
 #[tokio::test]
 async fn test_mock_server_starts() {
