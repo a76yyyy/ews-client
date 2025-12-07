@@ -157,34 +157,54 @@ ews-client/
 │   ├── Cargo.toml
 │   ├── src/
 │   │   ├── client/           # 客户端实现
-│   │   │   ├── mod.rs        # 主客户端 (EwsClient)
 │   │   │   ├── credentials.rs # 认证凭据
 │   │   │   ├── error.rs      # 错误类型 (EwsError)
 │   │   │   ├── headers.rs    # 消息头处理 (MessageHeaders trait)
+│   │   │   ├── mod.rs        # 主客户端 (EwsClient)
+│   │   │   ├── operations/   # EWS 操作实现
+│   │   │   │   ├── change_read_status.rs
+│   │   │   │   ├── check_connectivity.rs
+│   │   │   │   ├── copy_move_operations/
+│   │   │   │   │   ├── folder.rs
+│   │   │   │   │   ├── item.rs
+│   │   │   │   │   └── mod.rs
+│   │   │   │   ├── create_folder.rs
+│   │   │   │   ├── create_message.rs
+│   │   │   │   ├── delete_folder.rs
+│   │   │   │   ├── delete_messages.rs
+│   │   │   │   ├── get_message.rs
+│   │   │   │   ├── mark_as_junk.rs
+│   │   │   │   ├── mod.rs
+│   │   │   │   ├── send_message.rs
+│   │   │   │   ├── sync_folder_hierarchy.rs
+│   │   │   │   ├── sync_messages.rs
+│   │   │   │   ├── update_folder.rs
+│   │   │   │   └── update_item.rs
 │   │   │   ├── server_version.rs # 服务器版本检测
-│   │   │   ├── types.rs      # 数据类型
-│   │   │   └── operations/   # EWS 操作实现
-│   │   │       ├── mod.rs
-│   │   │       ├── check_connectivity.rs
-│   │   │       ├── sync_folder_hierarchy.rs
-│   │   │       ├── sync_messages.rs
-│   │   │       ├── create_folder.rs
-│   │   │       ├── update_folder.rs
-│   │   │       ├── delete_folder.rs
-│   │   │       ├── get_message.rs
-│   │   │       ├── create_message.rs
-│   │   │       ├── send_message.rs
-│   │   │       ├── delete_messages.rs
-│   │   │       ├── change_read_status.rs
-│   │   │       ├── mark_as_junk.rs
-│   │   │       └── copy_move_operations/
-│   │   │           ├── mod.rs
-│   │   │           ├── folder.rs
-│   │   │           └── item.rs
+│   │   │   └── types.rs      # 数据类型
 │   │   └── lib.rs            # 库入口
-│   └── tests/                # Rust 集成测试
-│       ├── folder_operations.rs
-│       └── operations_test.rs
+│   └── tests/                # 测试
+│       ├── README.md
+│       ├── common/           # 测试公共工具
+│       │   ├── fixtures.rs
+│       │   ├── image/
+│       │   ├── mock_server.rs
+│       │   ├── mod.rs
+│       │   └── test_utils.rs
+│       ├── integration/      # 集成测试
+│       │   ├── mock/
+│       │   │   ├── folder_operations.rs
+│       │   │   ├── infrastructure.rs
+│       │   │   └── item_operations.rs
+│       │   └── real/
+│       │       ├── folder_operations.rs
+│       │       └── item_operations.rs
+│       ├── integration_mock.rs
+│       ├── integration_real.rs
+│       ├── lib.rs
+│       ├── unit/             # 单元测试
+│       │   └── operations.rs
+│       └── unit.rs
 │
 ├── ews-client-python/        # Python 绑定 (PyO3)
 │   ├── Cargo.toml

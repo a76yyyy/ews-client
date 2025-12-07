@@ -8,6 +8,7 @@
 
 - ✅ Phase 1.1: 基础设施搭建
 - ✅ Phase 1.2: 核心操作实现 (连接检查、文件夹同步、消息获取)
+- ✅ Phase 1.3: 系统性测试 (核心架构已建立，Mock 测试基本完成)
 - ✅ Phase 2.1: 文件夹操作 (创建、删除、更新、复制、移动)
 - ✅ Phase 2.2: 消息操作 (同步、创建、删除、读取状态、垃圾邮件、复制、移动)
 - ✅ Phase 2.3: 发送消息功能
@@ -15,12 +16,10 @@
 
 **进行中:**
 
-- 无
+- 🔄 Phase 3: Python 绑定
 
 **待开展:**
 
-- ⏸️ Phase 1.3: 系统性测试 (优先完成所有操作后再进行)
-- ⏸️ Phase 3: Python 绑定
 - ⏸️ Phase 4: 测试与文档
 - ⏸️ Phase 5: OAuth2 支持 (可选)
 
@@ -59,19 +58,22 @@
 - `ews-client-core/src/client/operations/sync_folder_hierarchy.rs`
 - `ews-client-core/src/client/operations/get_message.rs`
 
-### Step 1.3: Testing
+### Step 1.3: Testing ✅
 
-- [ ] Unit tests for each operation
-- [ ] Mock server integration tests
-- [ ] Error handling tests
+- [x] Unit tests for each operation (Signature tests)
+- [x] Mock server integration tests (Folder & Item operations)
+- [x] Error handling tests
+- [x] Client-side integration tests (check_connectivity, change_read_status)
 
-**Files to create:**
+**Files created:**
 
-- `tests/rust/test_client.rs`
-- `tests/rust/test_operations.rs`
-- `tests/rust/fixtures/*.xml` (mock responses)
+- `ews-client-core/tests/unit/operations.rs`
+- `ews-client-core/tests/integration/mock/folder_operations.rs`
+- `ews-client-core/tests/integration/mock/item_operations.rs`
+- `ews-client-core/tests/common/mock_server.rs`
+- `ews-client-core/tests/common/fixtures.rs`
 
-**Status:** ⏸️ 暂未开展 - 优先完成所有操作实现后再进行系统性测试
+**Status:** ✅ 完成 - 核心测试架构已建立，Mock 测试覆盖了主要操作，包括客户端逻辑验证
 
 ## Phase 2: Complete Operation Set (Week 3-4)
 
@@ -110,6 +112,7 @@
 - [x] `mark_as_junk` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/mark_as_junk.rs`
 - [x] `copy_items` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/copy_move_operations/copy_move_item.rs`
 - [x] `move_items` - 参考 `reference/thunderbird-desktop/rust/ews_xpcom/src/client/copy_move_operations/copy_move_item.rs`
+- [x] `update_item` - 参考 `ews-client-core/src/client/operations/update_item.rs`
 
 **Files created:**
 
@@ -119,6 +122,7 @@
 - `ews-client-core/src/client/operations/change_read_status.rs` (包含 `change_read_status_all`)
 - `ews-client-core/src/client/operations/mark_as_junk.rs`
 - `ews-client-core/src/client/operations/copy_move_operations/item.rs`
+- `ews-client-core/src/client/operations/update_item.rs`
 
 **Status:** ✅ 完成 - 所有消息操作已实现并编译通过。
 
