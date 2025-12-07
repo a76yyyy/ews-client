@@ -40,7 +40,10 @@ except BaseEWSError as e:
 
 ### P2: 核心功能 ⏳
 
-- ⏳ 复杂类型转换
+- ✅ **复杂类型转换** - 完成
+  - `FolderInfo`, `FolderHierarchySyncResult`, `SyncMessageInfo`, `SyncMessagesResult`, `CreateMessageResult`
+  - 使用 `#[pyclass]` 实现，所有字段使用 `#[pyo3(get)]` 只读
+  - 类型别名导出：`PyXxx` → `Xxx`
 - ⏳ 简单同步方法
 - ⏳ 同步操作方法
 
@@ -151,7 +154,17 @@ PyO3 自动处理基础类型转换，无需手动实现：
 - `reference/pyo3/guide/src/conversions/tables.md`
 - `reference/pyo3/guide/src/conversions/traits.md`
 
-复杂类型（如 `FolderHierarchySyncResult`）将在 P2 阶段实现。
+### 2.1 复杂类型转换 ✅
+
+复杂类型使用 `#[pyclass]` 实现，所有字段使用 `#[pyo3(get)]` 只读：
+
+- `PyFolderInfo` → `FolderInfo`
+- `PyFolderHierarchySyncResult` → `FolderHierarchySyncResult`
+- `PySyncMessageInfo` → `SyncMessageInfo`
+- `PySyncMessagesResult` → `SyncMessagesResult`
+- `PyCreateMessageResult` → `CreateMessageResult`
+
+嵌套类型自动转换，`HashMap` 自动转换为 `dict`。
 
 ### 3. 异步方法包装 (`ews-client-python/src/client.rs`) ✅
 
@@ -296,23 +309,26 @@ impl IntoPy<PyObject> for FolderHierarchySyncResult {
 
 1. ✅ **错误映射** - 使用 `create_exception!` 宏创建异常类
 2. ✅ **基础类型转换** - 依赖 PyO3 自动转换
-3. 🔄 **check_connectivity** - 实现第一个异步方法
+3. ✅ **check_connectivity** - 实现第一个异步方法
 
-### P2: 核心功能
+### P2: 核心功能 ⏳
 
-1. 实现复杂类型转换（`FolderHierarchySyncResult` 等）
-2. 实现简单同步方法（`create_folder`, `delete_folder` 等）
-3. 实现同步操作方法（`sync_folder_hierarchy`, `sync_messages` 等）
+1. ✅ **复杂类型转换** - 完成
+   - 5个 `#[pyclass]` 类型实现
+   - 类型别名导出（`PyXxx` → `Xxx`）
+   - 合并 `types.pyi` 到 `_ews_client.pyi`
+2. ⏳ 简单同步方法（`create_folder`, `delete_folder`, `update_folder`, `delete_messages`）
+3. ⏳ 同步操作方法（`sync_folder_hierarchy`, `sync_messages`, `get_message`, `create_message`）
 
-### P3: 高级功能
+### P3: 高级功能 ⏳
 
-1. 实现批量操作方法
-2. 实现 `send_message` 方法
+1. ⏳ 批量操作方法（`change_read_status`, `mark_as_junk`, `copy/move folders/items`）
+2. ⏳ `send_message` 方法
 
-### P4: 测试与文档
+### P4: 测试与文档 ⏳
 
-1. 编写 Python 测试
-2. 更新文档
+1. ⏳ 编写 Python 测试
+2. ⏳ 更新文档
 
 ## 常见问题
 

@@ -216,8 +216,7 @@ ews-client/
 │
 ├── python/ews_client/        # Python 包
 │   ├── __init__.py           # 包入口
-│   ├── _ews_client.pyi       # 类型存根 (完整 API)
-│   ├── types.py              # Python 数据类型
+│   ├── _ews_client.pyi       # 类型存根 (完整 API + 数据类型)
 │   └── py.typed              # PEP 561 标记
 │
 ├── tests/

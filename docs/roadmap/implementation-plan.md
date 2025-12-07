@@ -20,9 +20,17 @@
   - ✅ P1.1: 错误映射 (error.rs) - 完成
   - ✅ P1.2: 基础类型转换 (types.rs) - 完成
   - ✅ P1.3: check_connectivity 方法 - 完成
+  - ✅ P2.1: 复杂类型转换 - 完成
+    - `FolderInfo`, `FolderHierarchySyncResult`, `SyncMessageInfo`, `SyncMessagesResult`, `CreateMessageResult`
+    - 使用 `#[pyclass]` 实现，所有字段使用 `#[pyo3(get)]` 只读
+    - 类型别名导出：`PyXxx` → `Xxx`
 
 **待开展:**
 
+- ⏸️ P2.2: 简单同步方法 (create_folder, delete_folder, update_folder, delete_messages)
+- ⏸️ P2.3: 同步操作方法 (sync_folder_hierarchy, sync_messages, get_message, create_message)
+- ⏸️ P3: 批量操作方法 (change_read_status, mark_as_junk, copy/move folders/items)
+- ⏸️ P3: send_message 方法
 - ⏸️ Phase 4: 测试与文档
 - ⏸️ Phase 5: OAuth2 支持 (可选)
 
@@ -377,33 +385,28 @@ impl PyEwsClient {
 
 ---
 
-### Step 3.4: Complex Type Conversion (P2 - 核心功能)
+### Step 3.4: Complex Type Conversion (P2 - 核心功能) ✅
 
 **Priority:** 🟡 High - Required by sync methods
 
-- [ ] Implement `FolderHierarchySyncResult` conversion
-- [ ] Implement `SyncMessagesResult` conversion
-- [ ] Implement `CreateMessageResult` conversion
-- [ ] Handle nested structures (`FolderInfo`, `SyncMessageInfo`)
-- [ ] Handle `HashMap` conversion
+- [x] Implement `FolderHierarchySyncResult` conversion
+- [x] Implement `SyncMessagesResult` conversion
+- [x] Implement `CreateMessageResult` conversion
+- [x] Handle nested structures (`FolderInfo`, `SyncMessageInfo`)
+- [x] Handle `HashMap` conversion
 
-**Files to modify:**
+**Files modified:**
 
-- `ews-client-python/src/types.rs` - Add complex type conversions (~200 lines)
+- `ews-client-python/src/types.rs` - 5个 `#[pyclass]` 类型 + `From` trait 实现
+- `ews-client-python/src/lib.rs` - 注册类型到 PyModule + 类型别名导出
+- `python/ews_client/_ews_client.pyi` - 合并类型定义，删除 `types.pyi`
+- `python/ews_client/__init__.py` - 从 `_ews_client` 导入所有类型
 
-**Implementation Details:**
+**Implementation:**
 
-```rust
-// Convert Rust struct to Python dict/dataclass
-impl IntoPy<PyObject> for FolderHierarchySyncResult {
-    fn into_py(self, py: Python) -> PyObject {
-        // Create Python dict or use dataclass
-        // Handle nested FolderInfo objects
-    }
-}
-```
+使用 `#[pyclass]` 为所有复杂类型，`#[pyo3(get)]` 使字段只读，嵌套类型也使用 `#[pyclass]`。
 
-**Status:** ⏳ Pending
+**Status:** ✅ 完成 - 编译通过，mypy 类型检查通过
 
 ---
 
