@@ -6,6 +6,7 @@
 
 #![allow(clippy::unwrap_used)]
 
+use base64::prelude::{BASE64_STANDARD, Engine};
 use std::fmt::Write;
 
 /// Common XML namespaces used in EWS responses
@@ -568,6 +569,7 @@ pub fn get_item_response(item_id: &str, subject: &str) -> String {
 
 /// Response for `GetItem` with MIME content (used in `get_message`)
 pub fn get_item_with_mime_response(item_id: &str, subject: &str, mime_content: &str) -> String {
+    let encoded_mime = BASE64_STANDARD.encode(mime_content);
     success_response!(
         "GetItem",
         format!(
@@ -588,7 +590,7 @@ pub fn get_item_with_mime_response(item_id: &str, subject: &str, mime_content: &
               <t:IsRead>false</t:IsRead>
             </t:Message>
           </m:Items>"#,
-            mime_content,
+            encoded_mime,
             id_xml!("ItemId", item_id, "CQAAAA=="),
             subject
         )
@@ -1366,7 +1368,7 @@ pub fn batch_delete_folder_mixed_response(success_count: usize, error_count: usi
         .map(|_| {
             response_error_xml!(
                 "DeleteFolder",
-                "ErrorFolderNotFound",
+                "ErrorItemNotFound",
                 "The specified object was not found in the store."
             )
         })
@@ -1664,7 +1666,8 @@ mod tests {
         let response = get_item_with_mime_response("item-id", "Test Subject", "BASE64_CONTENT");
         assert!(response.contains("item-id"));
         assert!(response.contains("Test Subject"));
-        assert!(response.contains("BASE64_CONTENT"));
+        // "BASE64_CONTENT" encoded in base64 is "QkFTRTY0X0NPTlRFTlQ="
+        assert!(response.contains("QkFTRTY0X0NPTlRFTlQ="));
         assert!(response.contains("MimeContent"));
         assert!(response.contains("DateTimeSent"));
         assert!(response.contains("From"));
@@ -1927,6 +1930,6 @@ mod tests {
         let error_count = response.matches("ResponseClass=\"Error\"").count();
         assert_eq!(success_count, 1);
         assert_eq!(error_count, 2);
-        assert!(response.contains("ErrorFolderNotFound"));
+        assert!(response.contains("ErrorItemNotFound"));
     }
 }
