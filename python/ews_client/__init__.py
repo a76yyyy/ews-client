@@ -2,6 +2,7 @@
 
 from ._ews_client import (
     BaseEWSError,
+    CreateMessageResult,
     EWSAuthenticationError,
     EwsClient,
     EWSHTTPError,
@@ -10,18 +11,11 @@ from ._ews_client import (
     EWSProtocolError,
     EWSResponseError,
     EWSSerializationError,
-    __version__,
-)
-from .types import (
-    CreateMessageResult,
     FolderHierarchySyncResult,
     FolderInfo,
-    # Legacy types (deprecated)
-    FolderSyncResult,
-    MessageInfo,
-    MessageSyncResult,
     SyncMessageInfo,
     SyncMessagesResult,
+    __version__,
 )
 
 __all__ = [
@@ -36,14 +30,10 @@ __all__ = [
     "EWSProcessingError",
     "EWSMissingIdError",
     "EWSSerializationError",
-    # New types
+    # Data types
     "FolderInfo",
     "FolderHierarchySyncResult",
     "SyncMessageInfo",
     "SyncMessagesResult",
     "CreateMessageResult",
-    # Legacy types (deprecated)
-    "FolderSyncResult",
-    "MessageInfo",
-    "MessageSyncResult",
 ]

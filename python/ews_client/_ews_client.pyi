@@ -1,10 +1,8 @@
-"""Type stubs for ews_client."""
+"""Type stubs for ews_client.
 
-from .types import (
-    CreateMessageResult,
-    FolderHierarchySyncResult,
-    SyncMessagesResult,
-)
+This module contains all EWS client types and the main EwsClient class.
+All types are implemented in Rust via PyO3 and exported to Python.
+"""
 
 # Exception classes (defined in Rust via create_exception! macro)
 class BaseEWSError(Exception):
@@ -101,6 +99,125 @@ class EWSSerializationError(BaseEWSError):
     """
 
     pass
+
+# Data types (implemented as #[pyclass] in Rust)
+
+class FolderInfo:
+    """Information about an EWS folder.
+
+    Represents a single folder in the EWS folder hierarchy.
+    All fields are read-only.
+    """
+
+    folder_id: str
+    """The EWS folder ID."""
+
+    parent_folder_id: str
+    """The parent folder ID."""
+
+    display_name: str
+    """The display name of the folder."""
+
+    folder_class: str | None
+    """The folder class (e.g., "IPF.Note" for mail folders)."""
+
+    total_count: int | None
+    """Total number of items in the folder."""
+
+    unread_count: int | None
+    """Number of unread items in the folder."""
+
+    child_folder_count: int | None
+    """Number of child folders."""
+
+class FolderHierarchySyncResult:
+    """Result of folder hierarchy synchronization.
+
+    Contains the changes to the folder hierarchy since the last sync.
+    All fields are read-only.
+    """
+
+    sync_state: str
+    """The new sync state token to use for the next sync."""
+
+    created_folders: list[FolderInfo]
+    """Folders that were created since the last sync."""
+
+    updated_folders: list[FolderInfo]
+    """Folders that were updated since the last sync."""
+
+    deleted_folder_ids: list[str]
+    """IDs of folders that were deleted since the last sync."""
+
+    well_known_folders: dict[str, str] | None
+    """Map of well-known folder IDs to their distinguished names
+    (e.g., "inbox", "deleteditems", "drafts", etc.)."""
+
+class SyncMessageInfo:
+    """Detailed information about a synced message.
+
+    Contains detailed information about a message from a sync operation.
+    All fields are read-only.
+    """
+
+    item_id: str
+    """The EWS item ID of the message."""
+
+    is_read: bool | None
+    """Whether the message has been read."""
+
+    internet_message_id: str | None
+    """The Internet message ID (RFC 2822 Message-ID header)."""
+
+    date_time_sent: int | None
+    """The date and time the message was sent (Unix timestamp in seconds)."""
+
+    from_: str | None
+    """The sender's email address."""
+
+    subject: str | None
+    """The message subject."""
+
+    has_attachments: bool | None
+    """Whether the message has attachments."""
+
+    size: int | None
+    """The size of the message in bytes."""
+
+class SyncMessagesResult:
+    """Result of message synchronization.
+
+    Contains the changes to messages in a folder since the last sync.
+    All fields are read-only.
+    """
+
+    created: list[str]
+    """Message IDs that were created."""
+
+    updated: list[str]
+    """Message IDs that were updated."""
+
+    deleted: list[str]
+    """Message IDs that were deleted."""
+
+    read_status_changed: list[tuple[str, bool]]
+    """Message IDs with read status changed (`item_id`, `is_read`)."""
+
+    sync_state: str
+    """The new sync state token for the next sync."""
+
+    includes_last_item: bool
+    """Whether there are more changes to fetch."""
+
+class CreateMessageResult:
+    """Result of creating a message.
+
+    Contains the ID of the newly created message.
+    All fields are read-only.
+    """
+
+    item_id: str
+    """The EWS ID of the newly created message."""
 
 class EwsClient:
     """EWS client for Exchange Web Services."""
