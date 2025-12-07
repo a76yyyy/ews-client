@@ -14,6 +14,7 @@
 )]
 
 use crate::common::{MockEwsServer, fixtures, test_utils::*};
+use ews_client_core::client::{Credentials, EwsClient};
 
 /// Helper function to create a SOAP request body for testing
 fn create_soap_request(operation: &str, body_content: &str) -> String {
@@ -29,6 +30,22 @@ fn create_soap_request(operation: &str, body_content: &str) -> String {
   </soap:Body>
 </soap:Envelope>"#
     )
+}
+
+/// Test check connectivity with mock server (using `EwsClient`)
+#[tokio::test]
+async fn test_check_connectivity_client() {
+    let mock = MockEwsServer::new().await;
+
+    // Register the mock response for msgfolderroot
+    // check_connectivity requests the "msgfolderroot" distinguished folder
+    let response_fixture = fixtures::get_folder_distinguished_response("msgfolderroot", "root-id");
+    mock.register_response(response_fixture).await;
+
+    let client = EwsClient::new(mock.ews_endpoint().parse().unwrap(), Credentials::basic("user", "pass")).unwrap();
+
+    let result = client.check_connectivity().await;
+    assert!(result.is_ok(), "check_connectivity failed: {:?}", result.err());
 }
 
 /// Test creating a folder with mock server

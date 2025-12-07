@@ -14,6 +14,7 @@
 )]
 
 use crate::common::{MockEwsServer, fixtures, test_utils::*};
+use ews_client_core::client::{Credentials, EwsClient};
 
 /// Helper function to create a SOAP request body for testing
 fn create_soap_request(operation: &str, body_content: &str) -> String {
@@ -29,6 +30,25 @@ fn create_soap_request(operation: &str, body_content: &str) -> String {
   </soap:Body>
 </soap:Envelope>"#
     )
+}
+
+/// Test change read status with mock server (using `EwsClient`)
+#[tokio::test]
+async fn test_change_read_status_client() {
+    let mock = MockEwsServer::new().await;
+    let item_id = "item-read-status";
+
+    // Register response for UpdateItem with SetItemField
+    let response = fixtures::update_item_set_field_response(item_id);
+    mock.register_response(response).await;
+
+    let client = EwsClient::new(mock.ews_endpoint().parse().unwrap(), Credentials::basic("user", "pass")).unwrap();
+
+    let result = client.change_read_status(&[item_id], true).await;
+    assert!(result.is_ok(), "change_read_status failed: {:?}", result.err());
+    let updated_ids = result.unwrap();
+    assert_eq!(updated_ids.len(), 1);
+    assert_eq!(updated_ids[0], item_id);
 }
 
 /// Test creating an item with mock server
