@@ -17,6 +17,9 @@
 **进行中:**
 
 - 🔄 Phase 3: Python 绑定
+  - ✅ P1.1: 错误映射 (error.rs) - 完成
+  - ✅ P1.2: 基础类型转换 (types.rs) - 完成
+  - ✅ P1.3: check_connectivity 方法 - 完成
 
 **待开展:**
 
@@ -207,13 +210,13 @@
 
 ## Phase 3: Python Bindings (Week 5)
 
-### Step 3.1: Error Mapping (P1 - 基础设施)
+### Step 3.1: Error Mapping (P1 - 基础设施) ✅
 
 **Priority:** 🔴 Critical - All other methods depend on error handling
 
-- [ ] Implement `BaseEWSError` exception class in Python
-- [ ] Map Rust `EwsError` variants to Python exception hierarchy
-- [ ] Implement error conversion in `ews-client-python/src/error.rs`
+- [x] Implement `BaseEWSError` exception class in Python
+- [x] Map Rust `EwsError` variants to Python exception hierarchy
+- [x] Implement error conversion in `ews-client-python/src/error.rs`
 
 **Error Hierarchy:**
 
@@ -262,79 +265,115 @@ impl From<EwsError> for PyErr {
 }
 ```
 
-**Status:** ⏳ Pending
+**Implementation:**
+
+使用 PyO3 的 `create_exception!` 宏创建异常类层次结构：
+
+```rust
+pyo3::create_exception!(_ews_client, BaseEWSError, PyException, "Base exception for all EWS client errors.");
+pyo3::create_exception!(_ews_client, EWSAuthenticationError, BaseEWSError, "Authentication failure (401, invalid credentials, etc.).");
+// ... 其他异常类
+```
+
+**Status:** ✅ 完成 - 编译通过，Clippy 无警告
 
 ---
 
-### Step 3.2: Basic Type Conversion (P1 - 基础设施)
+### Step 3.2: Basic Type Conversion (P1 - 基础设施) ✅
 
 **Priority:** 🔴 Critical - Required by all methods
 
-- [ ] Implement basic Rust → Python type conversion
-- [ ] Implement basic Python → Rust type conversion
-- [ ] Handle `Vec<String>`, `Option<T>`, `Result<T, E>`
-- [ ] Implement `FromPyObject` and `IntoPy` traits
+- [x] Implement basic Rust → Python type conversion
+- [x] Implement basic Python → Rust type conversion
+- [x] Handle `Vec<String>`, `Option<T>`, `Result<T, E>`
+- [x] Implement `FromPyObject` and `IntoPy` traits
 
-**Files to create/modify:**
+**Files modified:**
 
-- `ews-client-python/src/types.rs` - Type conversion utilities (~150 lines)
+- `ews-client-python/src/types.rs` - 文档说明
+- `python/ews_client/types.pyi` - 类型存根（从 types.py 重命名）
 
-**Implementation Details:**
+**Implementation:**
 
-```rust
-// ews-client-python/src/types.rs
-use pyo3::prelude::*;
+PyO3 自动处理基础类型转换，无需手动实现：
 
-// Vec<String> ↔ list[str]
-impl FromPyObject<'_> for Vec<String> {
-    fn extract(ob: &Bound<PyAny>) -> PyResult<Self> {
-        ob.extract::<Vec<String>>()
-    }
-}
+- `Vec<T>` ↔ `list[T]`
+- `Option<T>` ↔ `Optional[T]`
+- `String` ↔ `str`
+- `Vec<u8>` ↔ `bytes`
+- `HashMap<K, V>` ↔ `dict[K, V]`
 
-impl IntoPy<PyObject> for Vec<String> {
-    fn into_py(self, py: Python) -> PyObject {
-        self.into_py(py)
-    }
-}
+参考文档：
 
-// Option<T> ↔ Optional[T]
-// Result<T, E> → Python exception or value
-```
+- `reference/pyo3/guide/src/conversions/tables.md`
+- `reference/pyo3/guide/src/conversions/traits.md`
 
-**Status:** ⏳ Pending
+**Status:** ✅ 完成 - 基础类型依赖 PyO3 自动转换
 
 ---
 
-### Step 3.3: Async Bridge & check_connectivity (P1 - 基础设施)
+### Step 3.3: Async Bridge & check_connectivity (P1 - 基础设施) ✅
 
 **Priority:** 🔴 Critical - Validates async framework
 
-- [ ] Implement async method wrapper using `pyo3-async-runtimes`
-- [ ] Implement `check_connectivity` as first async method
-- [ ] Verify tokio → asyncio bridge works correctly
+- [x] Implement async method wrapper using `pyo3-async-runtimes`
+- [x] Implement `check_connectivity` as first async method
+- [x] Verify tokio → asyncio bridge works correctly
+- [x] Use `Arc<EwsClient>` to avoid server_version inconsistency
 
-**Files to modify:**
+**Files modified:**
 
-- `ews-client-python/src/client.rs` - Add `check_connectivity` method (~40 lines)
-- `ews-client-python/src/lib.rs` - Ensure module setup is correct
+- `ews-client-python/src/client.rs` - Added `check_connectivity` method with `Arc` wrapper
 
-**Implementation Details:**
+**Implementation:**
+
+使用 `Arc<EwsClient>` 而不是 `Clone`，以确保所有异步任务共享同一个 `server_version`：
 
 ```rust
-// ews-client-python/src/client.rs
+use std::sync::Arc;
+
+#[pyclass]
+pub struct PyEwsClient {
+    inner: Arc<EwsClient>,
+}
+
 #[pymethods]
 impl PyEwsClient {
+    #[new]
+    fn new(endpoint: String, username: String, password: String) -> PyResult<Self> {
+        let endpoint = endpoint.parse()
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))?;
+        let credentials = Credentials::basic(username, password);
+        let client = EwsClient::new(endpoint, credentials)
+            .map_err(|e| ews_error_to_py_err(&e))?;
+        Ok(Self { inner: Arc::new(client) })
+    }
+
     fn check_connectivity<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let client = self.inner.clone();
+        let client = Arc::clone(&self.inner);
         pyo3_async_runtimes::tokio::future_into_py(py, async move {
-            client.check_connectivity().await.map_err(Into::into)
+            client.check_connectivity().await
+                .map_err(|err| ews_error_to_py_err(&err))
         })
     }
 }
 ```
 
-**Status:** ⏳ Pending
+**关键设计决策:**
+
+1. **使用 `Arc` 而不是 `Clone`**:
+   - 避免 `server_version` 数据不一致问题
+   - 所有异步任务共享同一个 `EwsClient` 实例
+   - `server_version` 更新对所有任务可见
+   - 内存高效（只复制指针）
+
+2. **为什么不用 `Clone`**:
+   - `EwsClient` 包含 `AtomicCell<ExchangeServerVersion>`
+   - 克隆会创建独立的 `AtomicCell`，导致版本更新不同步
+   - 系统有全局 `SERVER_VERSION_CACHE`，但每个实例也有本地缓存
+   - 使用 `Arc` 确保所有任务看到相同的版本信息
+
+**Status:** ✅ 完成 - 编译通过，Clippy 无警告
 
 ---
 

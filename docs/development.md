@@ -276,9 +276,11 @@ ews-client/
 
 ### P1: 基础设施 (必须先完成)
 
-#### 1. 错误映射 (`error.rs`)
+#### 1. 错误映射 (`error.rs`) ✅
 
 **目标**: 将 Rust `EwsError` 映射到 Python 异常
+
+**状态**: ✅ 完成 - 使用 `create_exception!` 宏创建异常类层次结构
 
 **错误体系设计**:
 
@@ -319,82 +321,74 @@ class EWSSerializationError(BaseEWSError):
 
 **Rust 实现**:
 
+使用 PyO3 的 `create_exception!` 宏：
+
 ```rust
-// ews-client-python/src/error.rs
-use pyo3::prelude::*;
-use ews_client_core::EwsError;
+pyo3::create_exception!(_ews_client, BaseEWSError, PyException, "Base exception for all EWS client errors.");
+pyo3::create_exception!(_ews_client, EWSAuthenticationError, BaseEWSError, "Authentication failure (401, invalid credentials, etc.).");
+// ... 其他异常类
 
-pub fn create_error_classes(py: Python, module: &Bound<PyModule>) -> PyResult<()> {
-    // Create base exception class
-    let base_error = PyType::new::<BaseEWSError>(py)?;
-    module.add("BaseEWSError", base_error)?;
-
-    // Create specific exception classes
-    let auth_error = PyType::new::<EWSAuthenticationError>(py)?;
-    module.add("EWSAuthenticationError", auth_error)?;
-
-    // ... other error types
-    Ok(())
-}
-
-impl From<EwsError> for PyErr {
-    fn from(err: EwsError) -> Self {
-        match err {
-            EwsError::Authentication => {
-                PyErr::new::<EWSAuthenticationError, _>(err.to_string())
-            }
-            EwsError::Http(_) => {
-                PyErr::new::<EWSHTTPError, _>(err.to_string())
-            }
-            EwsError::Protocol(_) => {
-                PyErr::new::<EWSProtocolError, _>(err.to_string())
-            }
-            EwsError::ResponseError(_) => {
-                PyErr::new::<EWSResponseError, _>(err.to_string())
-            }
-            EwsError::Processing { message } => {
-                PyErr::new::<EWSProcessingError, _>(message)
-            }
-            EwsError::MissingIdInResponse => {
-                PyErr::new::<EWSMissingIdError, _>(err.to_string())
-            }
-            EwsError::Serialization(_) => {
-                PyErr::new::<EWSSerializationError, _>(err.to_string())
-            }
-            _ => PyErr::new::<BaseEWSError, _>(err.to_string()),
-        }
+pub fn ews_error_to_py_err(err: &EwsError) -> PyErr {
+    let msg = err.to_string();
+    match err {
+        EwsError::Authentication => EWSAuthenticationError::new_err(msg),
+        EwsError::Http(_) => EWSHTTPError::new_err(msg),
+        // ... 其他错误类型
     }
 }
 ```
 
-#### 2. 基础类型转换 (`types.rs`)
+#### 2. 基础类型转换 (`types.rs`) ✅
 
 **目标**: 实现基本的 Rust ↔ Python 类型转换
 
-**实现内容**:
+**状态**: ✅ 完成 - PyO3 自动处理基础类型转换
 
-- `Vec<String>` ↔ `list[str]`
+**自动支持的类型**:
+
+- `Vec<T>` ↔ `list[T]`
 - `Option<T>` ↔ `Optional[T]`
-- `Result<T, E>` → Python 异常或值
-- `bytes` ↔ `bytes`
+- `String` ↔ `str`
+- `Vec<u8>` ↔ `bytes`
+- `HashMap<K, V>` ↔ `dict[K, V]`
 
-#### 3. check_connectivity 方法
+参考: `reference/pyo3/guide/src/conversions/tables.md`
+
+#### 3. check_connectivity 方法 ✅
 
 **目标**: 实现最简单的异步方法作为验证框架
+
+**状态**: ✅ 完成 - 使用 `Arc<EwsClient>` 共享客户端实例
 
 **实现内容**:
 
 ```rust
+use std::sync::Arc;
+
+#[pyclass]
+pub struct PyEwsClient {
+    inner: Arc<EwsClient>,
+}
+
 #[pymethods]
 impl PyEwsClient {
+    #[new]
+    fn new(endpoint: String, username: String, password: String) -> PyResult<Self> {
+        let client = EwsClient::new(endpoint, credentials)?;
+        Ok(Self { inner: Arc::new(client) })
+    }
+
     fn check_connectivity<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let client = self.inner.clone();
+        let client = Arc::clone(&self.inner);
         pyo3_async_runtimes::tokio::future_into_py(py, async move {
-            client.check_connectivity().await.map_err(Into::into)
+            client.check_connectivity().await
+                .map_err(|err| ews_error_to_py_err(&err))
         })
     }
 }
 ```
+
+**关键设计决策**: 使用 `Arc` 而不是 `Clone`，避免 `server_version` 数据不一致问题。
 
 ### P2: 核心功能
 
@@ -528,9 +522,10 @@ mod my_operation;
 #[pymethods]
 impl PyEwsClient {
     fn my_operation<'py>(&self, py: Python<'py>, param: String) -> PyResult<Bound<'py, PyAny>> {
-        let client = self.inner.clone();
+        let client = Arc::clone(&self.inner);
         pyo3_async_runtimes::tokio::future_into_py(py, async move {
-            client.my_operation(&param).await.map_err(Into::into)
+            client.my_operation(&param).await
+                .map_err(|err| ews_error_to_py_err(&err))
         })
     }
 }

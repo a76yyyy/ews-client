@@ -30,9 +30,32 @@ except BaseEWSError as e:
 | `EwsError::Serialization(...)` | `EWSSerializationError` | JSON 序列化/反序列化错误 |
 | 其他 | `BaseEWSError` | 其他未分类的错误 |
 
+## 实现进度
+
+### P1: 基础设施 ✅
+
+- ✅ **错误映射** - 使用 `create_exception!` 宏创建异常类层次结构
+- ✅ **基础类型转换** - 依赖 PyO3 自动转换
+- ✅ **check_connectivity** - 完成，使用 `Arc` 共享客户端
+
+### P2: 核心功能 ⏳
+
+- ⏳ 复杂类型转换
+- ⏳ 简单同步方法
+- ⏳ 同步操作方法
+
+### P3: 高级功能 ⏳
+
+- ⏳ 批量操作方法
+- ⏳ send_message 方法
+
+### P4: 测试与文档 ⏳
+
+- ⏳ Python 测试
+
 ## Rust 实现细节
 
-### 1. 错误映射 (`ews-client-python/src/error.rs`)
+### 1. 错误映射 (`ews-client-python/src/error.rs`) ✅
 
 ```rust
 //! Error mapping from Rust to Python
@@ -110,75 +133,43 @@ impl From<EwsError> for PyErr {
 }
 ```
 
-### 2. 基础类型转换 (`ews-client-python/src/types.rs`)
+### 2. 基础类型转换 (`ews-client-python/src/types.rs`) ✅
 
-```rust
-//! Type conversion between Rust and Python
+PyO3 自动处理基础类型转换，无需手动实现：
 
-use pyo3::prelude::*;
+| Rust 类型 | Python 类型 | 说明 |
+|-----------|-------------|------|
+| `Vec<T>` | `list[T]` | 自动转换 |
+| `Option<T>` | `Optional[T]` | 自动转换 |
+| `String` | `str` | 自动转换 |
+| `Vec<u8>` | `bytes` | 自动转换 |
+| `HashMap<K, V>` | `dict[K, V]` | 自动转换 |
+| `(T, U)` | `tuple[T, U]` | 自动转换 |
 
-/// Convert Vec<String> to Python list[str]
-impl IntoPy<PyObject> for Vec<String> {
-    fn into_py(self, py: Python) -> PyObject {
-        self.into_py(py)
-    }
-}
+参考文档：
 
-/// Convert Python list[str] to Vec<String>
-impl<'a> FromPyObject<'a> for Vec<String> {
-    fn extract(ob: &'a Bound<PyAny>) -> PyResult<Self> {
-        ob.extract::<Vec<String>>()
-    }
-}
+- `reference/pyo3/guide/src/conversions/tables.md`
+- `reference/pyo3/guide/src/conversions/traits.md`
 
-/// Convert Option<T> to Python Optional[T]
-impl<T: IntoPy<PyObject>> IntoPy<PyObject> for Option<T> {
-    fn into_py(self, py: Python) -> PyObject {
-        match self {
-            Some(val) => val.into_py(py),
-            None => py.None(),
-        }
-    }
-}
+复杂类型（如 `FolderHierarchySyncResult`）将在 P2 阶段实现。
 
-/// Convert Python Optional[T] to Option<T>
-impl<'a, T: FromPyObject<'a>> FromPyObject<'a> for Option<T> {
-    fn extract(ob: &'a Bound<PyAny>) -> PyResult<Self> {
-        if ob.is_none() {
-            Ok(None)
-        } else {
-            T::extract(ob).map(Some)
-        }
-    }
-}
-
-/// Convert bytes to Python bytes
-impl IntoPy<PyObject> for Vec<u8> {
-    fn into_py(self, py: Python) -> PyObject {
-        PyBytes::new_bound(py, &self).into()
-    }
-}
-
-/// Convert Python bytes to Vec<u8>
-impl<'a> FromPyObject<'a> for Vec<u8> {
-    fn extract(ob: &'a Bound<PyAny>) -> PyResult<Self> {
-        Ok(ob.extract::<&[u8]>()?.to_vec())
-    }
-}
-```
-
-### 3. 异步方法包装 (`ews-client-python/src/client.rs`)
+### 3. 异步方法包装 (`ews-client-python/src/client.rs`) ✅
 
 ```rust
 //! Python client wrapper with async support
 
+use crate::error::ews_error_to_py_err;
+use ews_client_core::{Credentials, EwsClient};
 use pyo3::prelude::*;
-use ews_client_core::EwsClient;
+use std::sync::Arc;
 
+/// Python wrapper for the EWS client.
+///
+/// Uses `Arc` to share the client across multiple async tasks, ensuring that
+/// server version updates are visible to all tasks.
 #[pyclass]
 pub struct PyEwsClient {
-    #[allow(dead_code)]
-    inner: EwsClient,
+    inner: Arc<EwsClient>,
 }
 
 #[pymethods]
@@ -189,18 +180,23 @@ impl PyEwsClient {
             .parse()
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))?;
 
-        let credentials = ews_client_core::Credentials::basic(username, password);
+        let credentials = Credentials::basic(username, password);
         let client = EwsClient::new(endpoint, credentials)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{e}")))?;
+            .map_err(|e| ews_error_to_py_err(&e))?;
 
-        Ok(Self { inner: client })
+        Ok(Self {
+            inner: Arc::new(client),
+        })
     }
 
-    /// Test connection and authentication to the EWS server
+    /// Test connection and authentication to the EWS server.
     fn check_connectivity<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let client = self.inner.clone();
+        let client = Arc::clone(&self.inner);
         pyo3_async_runtimes::tokio::future_into_py(py, async move {
-            client.check_connectivity().await.map_err(Into::into)
+            client
+                .check_connectivity()
+                .await
+                .map_err(|err| ews_error_to_py_err(&err))
         })
     }
 }
@@ -208,19 +204,34 @@ impl PyEwsClient {
 
 ## 关键实现要点
 
-### 1. EwsClient 需要实现 Clone
+### 1. 使用 Arc 共享 EwsClient
 
-由于异步方法需要将 `EwsClient` 移动到异步块中，`EwsClient` 必须实现 `Clone`。
+由于异步方法需要将 `EwsClient` 移动到异步块中，我们使用 `Arc<EwsClient>` 而不是 `Clone`。
 
-在 `ews-client-core/src/client/mod.rs` 中添加：
+**为什么使用 Arc:**
+
+1. **避免 server_version 不一致**: `EwsClient` 包含 `AtomicCell<ExchangeServerVersion>`，克隆会创建独立的 `AtomicCell`，导致版本更新不同步
+2. **共享状态**: 所有异步任务共享同一个 `EwsClient` 实例，`server_version` 更新对所有任务可见
+3. **内存高效**: 只复制指针（8 字节），而不是整个结构
+4. **符合设计**: 系统有全局 `SERVER_VERSION_CACHE`，使用 `Arc` 确保本地缓存也是共享的
+
+**实现:**
 
 ```rust
-#[derive(Clone)]
-pub struct EwsClient {
-    endpoint: Url,
-    credentials: Credentials,
-    client: Client,
-    pub(crate) server_version: AtomicCell<ExchangeServerVersion>,
+use std::sync::Arc;
+
+#[pyclass]
+pub struct PyEwsClient {
+    inner: Arc<EwsClient>,
+}
+
+#[pymethods]
+impl PyEwsClient {
+    #[new]
+    fn new(endpoint: String, username: String, password: String) -> PyResult<Self> {
+        let client = EwsClient::new(endpoint, credentials)?;
+        Ok(Self { inner: Arc::new(client) })
+    }
 }
 ```
 
@@ -230,10 +241,11 @@ pub struct EwsClient {
 
 ```rust
 fn async_method<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-    let client = self.inner.clone();
+    let client = Arc::clone(&self.inner);  // 只复制 Arc 指针
     pyo3_async_runtimes::tokio::future_into_py(py, async move {
         // 异步代码在这里运行，GIL 已释放
-        client.some_async_operation().await.map_err(Into::into)
+        client.some_async_operation().await
+            .map_err(|err| ews_error_to_py_err(&err))
     })
 }
 ```
@@ -249,11 +261,12 @@ fn change_read_status<'py>(
     item_ids: Vec<String>,
     is_read: bool,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let client = self.inner.clone();
+    let client = Arc::clone(&self.inner);
     pyo3_async_runtimes::tokio::future_into_py(py, async move {
         // 将 Vec<String> 转换为 Vec<&str>
         let ids: Vec<&str> = item_ids.iter().map(|s| s.as_str()).collect();
-        client.change_read_status(&ids, is_read).await.map_err(Into::into)
+        client.change_read_status(&ids, is_read).await
+            .map_err(|err| ews_error_to_py_err(&err))
     })
 }
 ```
@@ -279,34 +292,38 @@ impl IntoPy<PyObject> for FolderHierarchySyncResult {
 
 ## 开发流程
 
-### 第一步：实现错误映射
+### P1: 基础设施 ✅
 
-1. 创建 `python/ews_client/errors.py` 定义 Python 异常类
-2. 实现 `ews-client-python/src/error.rs` 中的 `From<EwsError> for PyErr`
-3. 在 `ews-client-python/src/lib.rs` 中注册错误类
+1. ✅ **错误映射** - 使用 `create_exception!` 宏创建异常类
+2. ✅ **基础类型转换** - 依赖 PyO3 自动转换
+3. 🔄 **check_connectivity** - 实现第一个异步方法
 
-### 第二步：实现基础类型转换
+### P2: 核心功能
 
-1. 在 `ews-client-python/src/types.rs` 中实现基本类型的 `FromPyObject` 和 `IntoPy`
-2. 测试类型转换是否正确
+1. 实现复杂类型转换（`FolderHierarchySyncResult` 等）
+2. 实现简单同步方法（`create_folder`, `delete_folder` 等）
+3. 实现同步操作方法（`sync_folder_hierarchy`, `sync_messages` 等）
 
-### 第三步：实现异步方法
+### P3: 高级功能
 
-1. 确保 `EwsClient` 实现了 `Clone`
-2. 在 `ews-client-python/src/client.rs` 中实现 `#[pymethods]`
-3. 使用 `pyo3_async_runtimes::tokio::future_into_py` 包装异步调用
+1. 实现批量操作方法
+2. 实现 `send_message` 方法
 
-### 第四步：测试
+### P4: 测试与文档
 
-1. 编写 Python 测试验证错误映射
-2. 编写 Python 测试验证类型转换
-3. 编写 Python 测试验证异步方法
+1. 编写 Python 测试
+2. 更新文档
 
 ## 常见问题
 
-### Q: 为什么需要 Clone？
+### Q: 为什么使用 Arc 而不是 Clone？
 
-A: 异步方法需要将 `EwsClient` 移动到异步块中。由于 Rust 的所有权规则，我们需要克隆它以保持原始引用。
+A:
+
+1. **数据一致性**: `EwsClient` 包含 `AtomicCell<ExchangeServerVersion>`，克隆会创建独立的副本，导致版本更新不同步
+2. **共享状态**: 使用 `Arc` 确保所有异步任务看到相同的 `server_version`
+3. **内存效率**: `Arc` 只复制指针，而 `Clone` 会复制整个结构
+4. **符合设计**: 系统有全局版本缓存，`Arc` 确保本地缓存也是共享的
 
 ### Q: 如何处理 GIL？
 
@@ -314,7 +331,7 @@ A: `pyo3_async_runtimes::tokio::future_into_py` 自动处理 GIL 释放。在异
 
 ### Q: 如何处理错误？
 
-A: 使用 `map_err(Into::into)` 将 `EwsError` 转换为 `PyErr`。`From<EwsError> for PyErr` 实现会自动处理转换。
+A: 使用 `map_err(|err| ews_error_to_py_err(&err))` 将 `EwsError` 转换为 `PyErr`。`ews_error_to_py_err` 函数会将 Rust 错误映射到相应的 Python 异常类。
 
 ### Q: 如何处理复杂类型？
 
