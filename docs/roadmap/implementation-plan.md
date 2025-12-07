@@ -207,43 +207,272 @@
 
 ## Phase 3: Python Bindings (Week 5)
 
-### Step 3.1: Basic Bindings
+### Step 3.1: Error Mapping (P1 - 基础设施)
 
-- [ ] PyO3 module setup
-- [ ] `PyEwsClient` base structure
-- [ ] Async bridge (tokio → asyncio)
-- [ ] Error mapping to Python exceptions
+**Priority:** 🔴 Critical - All other methods depend on error handling
 
-**Files to create:**
+- [ ] Implement `BaseEWSError` exception class in Python
+- [ ] Map Rust `EwsError` variants to Python exception hierarchy
+- [ ] Implement error conversion in `ews-client-python/src/error.rs`
 
-- `ews-client-python/Cargo.toml`
-- `ews-client-python/src/lib.rs`
-- `ews-client-python/src/client.rs`
-- `ews-client-python/src/error.rs`
+**Error Hierarchy:**
 
-### Step 3.2: Type Conversion
+```
+BaseEWSError (base class)
+├── EWSAuthenticationError (Authentication failures)
+├── EWSHTTPError (Network/HTTP errors)
+├── EWSProtocolError (SOAP/XML parsing errors)
+├── EWSResponseError (EWS response errors)
+├── EWSProcessingError (Data validation/processing errors)
+├── EWSMissingIdError (Missing ID in response)
+└── EWSSerializationError (JSON/serialization errors)
+```
 
-- [ ] Rust → Python type conversion
-- [ ] Python → Rust type conversion
-- [ ] Handle `Vec`, `Option`, `Result`
-- [ ] Complex types (FolderSyncResult, MessageSyncResult, etc.)
+**Files to create/modify:**
 
-**Files to create:**
+- `ews-client-python/src/error.rs` - Implement error mapping (~80 lines)
+- `python/ews_client/errors.py` - Define Python exception classes (~60 lines)
+- `python/ews_client/__init__.py` - Export error classes
 
-- `ews-client-python/src/types.rs`
-- `python/ews_client/types.py`
+**Implementation Details:**
 
-### Step 3.3: Type Hints
+```rust
+// ews-client-python/src/error.rs
+use pyo3::prelude::*;
+use ews_client_core::EwsError;
 
-- [ ] `.pyi` stub files
-- [ ] `types.py` type definitions
-- [ ] `py.typed` marker
+pub fn create_error_classes(py: Python, module: &Bound<PyModule>) -> PyResult<()> {
+    // Create base exception class
+    let base_error = PyErr::new::<pyo3::exceptions::PyException, _>("BaseEWSError");
 
-**Files to create:**
+    // Create specific exception classes
+    // Map each EwsError variant to appropriate Python exception
+    Ok(())
+}
 
-- `python/ews_client/__init__.pyi`
-- `python/ews_client/types.pyi`
-- `python/ews_client/py.typed`
+impl From<EwsError> for PyErr {
+    fn from(err: EwsError) -> Self {
+        match err {
+            EwsError::Authentication => /* EWSAuthenticationError */,
+            EwsError::Http(_) => /* EWSHTTPError */,
+            EwsError::Protocol(_) => /* EWSProtocolError */,
+            // ... other variants
+        }
+    }
+}
+```
+
+**Status:** ⏳ Pending
+
+---
+
+### Step 3.2: Basic Type Conversion (P1 - 基础设施)
+
+**Priority:** 🔴 Critical - Required by all methods
+
+- [ ] Implement basic Rust → Python type conversion
+- [ ] Implement basic Python → Rust type conversion
+- [ ] Handle `Vec<String>`, `Option<T>`, `Result<T, E>`
+- [ ] Implement `FromPyObject` and `IntoPy` traits
+
+**Files to create/modify:**
+
+- `ews-client-python/src/types.rs` - Type conversion utilities (~150 lines)
+
+**Implementation Details:**
+
+```rust
+// ews-client-python/src/types.rs
+use pyo3::prelude::*;
+
+// Vec<String> ↔ list[str]
+impl FromPyObject<'_> for Vec<String> {
+    fn extract(ob: &Bound<PyAny>) -> PyResult<Self> {
+        ob.extract::<Vec<String>>()
+    }
+}
+
+impl IntoPy<PyObject> for Vec<String> {
+    fn into_py(self, py: Python) -> PyObject {
+        self.into_py(py)
+    }
+}
+
+// Option<T> ↔ Optional[T]
+// Result<T, E> → Python exception or value
+```
+
+**Status:** ⏳ Pending
+
+---
+
+### Step 3.3: Async Bridge & check_connectivity (P1 - 基础设施)
+
+**Priority:** 🔴 Critical - Validates async framework
+
+- [ ] Implement async method wrapper using `pyo3-async-runtimes`
+- [ ] Implement `check_connectivity` as first async method
+- [ ] Verify tokio → asyncio bridge works correctly
+
+**Files to modify:**
+
+- `ews-client-python/src/client.rs` - Add `check_connectivity` method (~40 lines)
+- `ews-client-python/src/lib.rs` - Ensure module setup is correct
+
+**Implementation Details:**
+
+```rust
+// ews-client-python/src/client.rs
+#[pymethods]
+impl PyEwsClient {
+    fn check_connectivity<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let client = self.inner.clone();
+        pyo3_async_runtimes::tokio::future_into_py(py, async move {
+            client.check_connectivity().await.map_err(Into::into)
+        })
+    }
+}
+```
+
+**Status:** ⏳ Pending
+
+---
+
+### Step 3.4: Complex Type Conversion (P2 - 核心功能)
+
+**Priority:** 🟡 High - Required by sync methods
+
+- [ ] Implement `FolderHierarchySyncResult` conversion
+- [ ] Implement `SyncMessagesResult` conversion
+- [ ] Implement `CreateMessageResult` conversion
+- [ ] Handle nested structures (`FolderInfo`, `SyncMessageInfo`)
+- [ ] Handle `HashMap` conversion
+
+**Files to modify:**
+
+- `ews-client-python/src/types.rs` - Add complex type conversions (~200 lines)
+
+**Implementation Details:**
+
+```rust
+// Convert Rust struct to Python dict/dataclass
+impl IntoPy<PyObject> for FolderHierarchySyncResult {
+    fn into_py(self, py: Python) -> PyObject {
+        // Create Python dict or use dataclass
+        // Handle nested FolderInfo objects
+    }
+}
+```
+
+**Status:** ⏳ Pending
+
+---
+
+### Step 3.5: Simple Sync Methods (P2 - 核心功能)
+
+**Priority:** 🟡 High - Basic operations
+
+- [ ] Implement `create_folder(parent_id: str, name: str) -> str`
+- [ ] Implement `delete_folder(folder_ids: list[str]) -> None`
+- [ ] Implement `update_folder(folder_id: str, folder_name: str) -> None`
+- [ ] Implement `delete_messages(item_ids: list[str]) -> None`
+
+**Files to modify:**
+
+- `ews-client-python/src/client.rs` - Add 4 methods (~100 lines)
+
+**Status:** ⏳ Pending
+
+---
+
+### Step 3.6: Sync Operation Methods (P2 - 核心功能)
+
+**Priority:** 🟡 High - Core sync operations
+
+- [ ] Implement `sync_folder_hierarchy(sync_state: str | None) -> FolderHierarchySyncResult`
+- [ ] Implement `sync_messages(folder_id: str, sync_state: str | None) -> SyncMessagesResult`
+- [ ] Implement `get_message(message_id: str) -> bytes`
+- [ ] Implement `create_message(folder_id: str, content: bytes, is_draft: bool, is_read: bool) -> CreateMessageResult`
+
+**Files to modify:**
+
+- `ews-client-python/src/client.rs` - Add 4 methods (~120 lines)
+
+**Status:** ⏳ Pending
+
+---
+
+### Step 3.7: Batch Operation Methods (P3 - 高级功能)
+
+**Priority:** 🟠 Medium - Batch operations with parameter conversion
+
+- [ ] Implement `change_read_status(item_ids: list[str], is_read: bool) -> list[str]`
+- [ ] Implement `change_read_status_all(folder_ids: list[str], is_read: bool, suppress_read_receipts: bool) -> None`
+- [ ] Implement `mark_as_junk(item_ids: list[str], is_junk: bool, legacy_junk_folder_id: str) -> list[str]`
+- [ ] Implement `copy_folders(destination_folder_id: str, folder_ids: list[str]) -> list[str]`
+- [ ] Implement `move_folders(destination_folder_id: str, folder_ids: list[str]) -> list[str]`
+- [ ] Implement `copy_items(destination_folder_id: str, item_ids: list[str]) -> list[str]`
+- [ ] Implement `move_items(destination_folder_id: str, item_ids: list[str]) -> list[str]`
+
+**Files to modify:**
+
+- `ews-client-python/src/client.rs` - Add 7 methods (~150 lines)
+
+**Implementation Note:** These methods require converting `list[str]` to `&[&str]` in the binding layer.
+
+**Status:** ⏳ Pending
+
+---
+
+### Step 3.8: send_message Method (P3 - 高级功能)
+
+**Priority:** 🟠 Medium - Requires special type conversion
+
+- [ ] Implement `Recipient` type conversion from Python tuples
+- [ ] Implement `send_message(mime_content: str, message_id: str, should_request_dsn: bool, bcc_recipients: list[tuple[str | None, str | None]]) -> None`
+
+**Files to modify:**
+
+- `ews-client-python/src/types.rs` - Add `Recipient` conversion (~50 lines)
+- `ews-client-python/src/client.rs` - Add `send_message` method (~80 lines)
+
+**Implementation Details:**
+
+```rust
+// Convert Python tuple to Recipient
+impl FromPyObject<'_> for Recipient {
+    fn extract(ob: &Bound<PyAny>) -> PyResult<Self> {
+        let (name, email): (Option<String>, Option<String>) = ob.extract()?;
+        Ok(Recipient {
+            mailbox: Mailbox {
+                name,
+                email_address: email.ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("email is required"))?,
+            },
+            routing_type: None,
+        })
+    }
+}
+```
+
+**Status:** ⏳ Pending
+
+---
+
+### Step 3.9: Python Testing (P4 - 测试与文档)
+
+**Priority:** 🔵 Low - Testing phase
+
+- [ ] Write unit tests for all methods
+- [ ] Write integration tests with mock server
+- [ ] Write type checking tests (mypy)
+- [ ] Verify error handling
+
+**Files to create/modify:**
+
+- `tests/python/test_client.py` - Add comprehensive tests (~300 lines)
+- `tests/python/conftest.py` - Setup fixtures and mock server
+
+**Status:** ⏳ Pending
 
 ## Phase 4: Testing & Documentation (Week 6)
 

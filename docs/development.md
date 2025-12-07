@@ -258,6 +258,221 @@ ews-client/
 └── .pre-commit-config.yaml   # Pre-commit 配置
 ```
 
+## Phase 3: Python 绑定开发指南
+
+### 优先级概览
+
+| 优先级 | 阶段 | 任务 | 工作量 | 预计时间 |
+|------|------|------|------|--------|
+| 🔴 P1 | 基础设施 | 错误映射 | 中 | 1-2 小时 |
+| 🔴 P1 | 基础设施 | 基础类型转换 | 中 | 2-3 小时 |
+| 🔴 P1 | 基础设施 | check_connectivity | 小 | 30 分钟 |
+| 🟡 P2 | 核心功能 | 复杂类型转换 | 大 | 3-4 小时 |
+| 🟡 P2 | 核心功能 | 简单同步方法 | 小 | 1-2 小时 |
+| 🟡 P2 | 核心功能 | 同步操作方法 | 中 | 2-3 小时 |
+| 🟠 P3 | 高级功能 | 批量操作方法 | 中 | 2-3 小时 |
+| 🟠 P3 | 高级功能 | send_message | 中 | 1-2 小时 |
+| 🔵 P4 | 测试 | Python 测试 | 大 | 4-5 小时 |
+
+### P1: 基础设施 (必须先完成)
+
+#### 1. 错误映射 (`error.rs`)
+
+**目标**: 将 Rust `EwsError` 映射到 Python 异常
+
+**错误体系设计**:
+
+```python
+# python/ews_client/errors.py
+class BaseEWSError(Exception):
+    """Base exception for all EWS client errors."""
+    pass
+
+class EWSAuthenticationError(BaseEWSError):
+    """Authentication failure (401, invalid credentials, etc.)."""
+    pass
+
+class EWSHTTPError(BaseEWSError):
+    """HTTP transport error (network, connection, etc.)."""
+    pass
+
+class EWSProtocolError(BaseEWSError):
+    """EWS protocol error (SOAP parsing, XML issues, etc.)."""
+    pass
+
+class EWSResponseError(BaseEWSError):
+    """EWS response contained an error code."""
+    pass
+
+class EWSProcessingError(BaseEWSError):
+    """Error processing response data (validation, unexpected format, etc.)."""
+    pass
+
+class EWSMissingIdError(BaseEWSError):
+    """Missing required ID in response from Exchange."""
+    pass
+
+class EWSSerializationError(BaseEWSError):
+    """JSON serialization/deserialization error."""
+    pass
+```
+
+**Rust 实现**:
+
+```rust
+// ews-client-python/src/error.rs
+use pyo3::prelude::*;
+use ews_client_core::EwsError;
+
+pub fn create_error_classes(py: Python, module: &Bound<PyModule>) -> PyResult<()> {
+    // Create base exception class
+    let base_error = PyType::new::<BaseEWSError>(py)?;
+    module.add("BaseEWSError", base_error)?;
+
+    // Create specific exception classes
+    let auth_error = PyType::new::<EWSAuthenticationError>(py)?;
+    module.add("EWSAuthenticationError", auth_error)?;
+
+    // ... other error types
+    Ok(())
+}
+
+impl From<EwsError> for PyErr {
+    fn from(err: EwsError) -> Self {
+        match err {
+            EwsError::Authentication => {
+                PyErr::new::<EWSAuthenticationError, _>(err.to_string())
+            }
+            EwsError::Http(_) => {
+                PyErr::new::<EWSHTTPError, _>(err.to_string())
+            }
+            EwsError::Protocol(_) => {
+                PyErr::new::<EWSProtocolError, _>(err.to_string())
+            }
+            EwsError::ResponseError(_) => {
+                PyErr::new::<EWSResponseError, _>(err.to_string())
+            }
+            EwsError::Processing { message } => {
+                PyErr::new::<EWSProcessingError, _>(message)
+            }
+            EwsError::MissingIdInResponse => {
+                PyErr::new::<EWSMissingIdError, _>(err.to_string())
+            }
+            EwsError::Serialization(_) => {
+                PyErr::new::<EWSSerializationError, _>(err.to_string())
+            }
+            _ => PyErr::new::<BaseEWSError, _>(err.to_string()),
+        }
+    }
+}
+```
+
+#### 2. 基础类型转换 (`types.rs`)
+
+**目标**: 实现基本的 Rust ↔ Python 类型转换
+
+**实现内容**:
+
+- `Vec<String>` ↔ `list[str]`
+- `Option<T>` ↔ `Optional[T]`
+- `Result<T, E>` → Python 异常或值
+- `bytes` ↔ `bytes`
+
+#### 3. check_connectivity 方法
+
+**目标**: 实现最简单的异步方法作为验证框架
+
+**实现内容**:
+
+```rust
+#[pymethods]
+impl PyEwsClient {
+    fn check_connectivity<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let client = self.inner.clone();
+        pyo3_async_runtimes::tokio::future_into_py(py, async move {
+            client.check_connectivity().await.map_err(Into::into)
+        })
+    }
+}
+```
+
+### P2: 核心功能
+
+#### 4. 复杂类型转换
+
+**目标**: 实现 `FolderHierarchySyncResult`, `SyncMessagesResult`, `CreateMessageResult` 的转换
+
+**实现内容**:
+
+- 为每个类型实现 `IntoPy<PyObject>`
+- 处理嵌套结构 (`FolderInfo`, `SyncMessageInfo`)
+- 处理 `HashMap` 转换
+
+#### 5. 简单的同步方法
+
+**方法列表**:
+
+- `create_folder(parent_id: str, name: str) -> str`
+- `delete_folder(folder_ids: list[str]) -> None`
+- `update_folder(folder_id: str, folder_name: str) -> None`
+- `delete_messages(item_ids: list[str]) -> None`
+
+#### 6. 同步操作方法
+
+**方法列表**:
+
+- `sync_folder_hierarchy(sync_state: str | None) -> FolderHierarchySyncResult`
+- `sync_messages(folder_id: str, sync_state: str | None) -> SyncMessagesResult`
+- `get_message(message_id: str) -> bytes`
+- `create_message(folder_id: str, content: bytes, is_draft: bool, is_read: bool) -> CreateMessageResult`
+
+### P3: 高级功能
+
+#### 7. 批量操作方法
+
+**方法列表**:
+
+- `change_read_status(item_ids: list[str], is_read: bool) -> list[str]`
+- `change_read_status_all(folder_ids: list[str], is_read: bool, suppress_read_receipts: bool) -> None`
+- `mark_as_junk(item_ids: list[str], is_junk: bool, legacy_junk_folder_id: str) -> list[str]`
+- `copy_folders(destination_folder_id: str, folder_ids: list[str]) -> list[str]`
+- `move_folders(destination_folder_id: str, folder_ids: list[str]) -> list[str]`
+- `copy_items(destination_folder_id: str, item_ids: list[str]) -> list[str]`
+- `move_items(destination_folder_id: str, item_ids: list[str]) -> list[str]`
+
+**关键点**: 需要将 `list[str]` 转换为 `&[&str]`
+
+#### 8. send_message 方法
+
+**特殊处理**: 需要 `Recipient` 类型转换
+
+```rust
+impl FromPyObject<'_> for Recipient {
+    fn extract(ob: &Bound<PyAny>) -> PyResult<Self> {
+        let (name, email): (Option<String>, Option<String>) = ob.extract()?;
+        Ok(Recipient {
+            mailbox: Mailbox {
+                name,
+                email_address: email.ok_or_else(|| {
+                    PyErr::new::<pyo3::exceptions::PyValueError, _>("email is required")
+                })?,
+            },
+            routing_type: None,
+        })
+    }
+}
+```
+
+### P4: 测试与文档
+
+#### 9. Python 测试
+
+**内容**:
+
+- 单元测试 (使用 Mock server)
+- 集成测试 (使用真实 EWS 服务器)
+- 类型检查测试 (mypy)
+
 ## 添加新操作
 
 ### 步骤
@@ -308,8 +523,8 @@ impl EwsClient {
 mod my_operation;
 ```
 
-```python
-# ews-client-python/src/client.rs
+```rust
+// ews-client-python/src/client.rs
 #[pymethods]
 impl PyEwsClient {
     fn my_operation<'py>(&self, py: Python<'py>, param: String) -> PyResult<Bound<'py, PyAny>> {
